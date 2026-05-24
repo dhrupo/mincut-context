@@ -2,10 +2,12 @@ import Parser from 'tree-sitter';
 import { createRequire } from 'node:module';
 import {
   approxTokens,
+  type ChunkOptions,
   type ParsedImport,
   type ParsedSymbol,
   type ParseResult,
 } from './parser.js';
+import { tryChunkBody } from './chunking.js';
 
 const require_ = createRequire(import.meta.url);
 const Python = require_('tree-sitter-python');
@@ -13,7 +15,11 @@ const Python = require_('tree-sitter-python');
 const pyParser = new Parser();
 pyParser.setLanguage(Python);
 
-export function parsePython(file: string, source: string): ParseResult {
+export function parsePython(
+  file: string,
+  source: string,
+  chunkOptions?: ChunkOptions,
+): ParseResult {
   let tree: Parser.Tree;
   try {
     tree = pyParser.parse(source);
@@ -29,6 +35,7 @@ export function parsePython(file: string, source: string): ParseResult {
     calls: [],
     classStack: [],
     callerStack: [],
+    chunkOptions,
   };
   visit(tree.rootNode, ctx);
   return { symbols: ctx.symbols, imports: ctx.imports, calls: ctx.calls };
@@ -42,6 +49,7 @@ interface PyContext {
   calls: { from: string; toName: string }[];
   classStack: string[];
   callerStack: string[];
+  chunkOptions?: ChunkOptions;
 }
 
 function visit(node: Parser.SyntaxNode, ctx: PyContext): void {
@@ -52,11 +60,26 @@ function visit(node: Parser.SyntaxNode, ctx: PyContext): void {
       const bareName = nameNode.text;
       const cls = ctx.classStack[ctx.classStack.length - 1];
       const qualified = cls ? `${cls}.${bareName}` : bareName;
-      const sym = makeSym(ctx, node, bareName, qualified, cls ? 'method' : 'function');
+      const kind = cls ? 'method' : 'function';
+      const body = node.childForFieldName('body');
+      const chunked = tryChunkBody({
+        file: ctx.file,
+        source: ctx.source,
+        qualifiedName: qualified,
+        bareName,
+        kind,
+        body,
+        chunkOptions: ctx.chunkOptions,
+        callerStack: ctx.callerStack,
+      });
+      if (chunked) {
+        ctx.symbols.push(...chunked.symbols);
+        chunked.walkStatements((stmt) => visit(stmt, ctx));
+        return;
+      }
+      const sym = makeSym(ctx, node, bareName, qualified, kind);
       ctx.symbols.push(sym);
       ctx.callerStack.push(sym.id);
-      // Walk the body — nested defs/calls.
-      const body = node.childForFieldName('body');
       if (body) visit(body, ctx);
       ctx.callerStack.pop();
       return;

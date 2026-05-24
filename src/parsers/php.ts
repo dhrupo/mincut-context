@@ -2,10 +2,12 @@ import Parser from 'tree-sitter';
 import { createRequire } from 'node:module';
 import {
   approxTokens,
+  type ChunkOptions,
   type ParsedImport,
   type ParsedSymbol,
   type ParseResult,
 } from './parser.js';
+import { tryChunkBody } from './chunking.js';
 
 const require_ = createRequire(import.meta.url);
 const Php = require_('tree-sitter-php') as { php: unknown };
@@ -13,7 +15,11 @@ const Php = require_('tree-sitter-php') as { php: unknown };
 const phpParser = new Parser();
 phpParser.setLanguage(Php.php);
 
-export function parsePhp(file: string, source: string): ParseResult {
+export function parsePhp(
+  file: string,
+  source: string,
+  chunkOptions?: ChunkOptions,
+): ParseResult {
   let tree: Parser.Tree;
   try {
     tree = phpParser.parse(source);
@@ -29,6 +35,7 @@ export function parsePhp(file: string, source: string): ParseResult {
     calls: [],
     classStack: [],
     callerStack: [],
+    chunkOptions,
   };
   visit(tree.rootNode, ctx);
   return { symbols: ctx.symbols, imports: ctx.imports, calls: ctx.calls };
@@ -42,6 +49,7 @@ interface PhpContext {
   calls: { from: string; toName: string }[];
   classStack: string[];
   callerStack: string[];
+  chunkOptions?: ChunkOptions;
 }
 
 function visit(node: Parser.SyntaxNode, ctx: PhpContext): void {
@@ -49,10 +57,25 @@ function visit(node: Parser.SyntaxNode, ctx: PhpContext): void {
     case 'function_definition': {
       const name = node.childForFieldName('name')?.text;
       if (name) {
+        const body = node.childForFieldName('body');
+        const chunked = tryChunkBody({
+          file: ctx.file,
+          source: ctx.source,
+          qualifiedName: name,
+          bareName: name,
+          kind: 'function',
+          body,
+          chunkOptions: ctx.chunkOptions,
+          callerStack: ctx.callerStack,
+        });
+        if (chunked) {
+          ctx.symbols.push(...chunked.symbols);
+          chunked.walkStatements((stmt) => visit(stmt, ctx));
+          return;
+        }
         const sym = mk(ctx, node, name, name, 'function');
         ctx.symbols.push(sym);
         ctx.callerStack.push(sym.id);
-        const body = node.childForFieldName('body');
         if (body) visit(body, ctx);
         ctx.callerStack.pop();
         return;
@@ -84,10 +107,25 @@ function visit(node: Parser.SyntaxNode, ctx: PhpContext): void {
       if (!name) break;
       const cls = ctx.classStack[ctx.classStack.length - 1];
       const qualified = cls ? `${cls}.${name}` : name;
+      const body = node.childForFieldName('body');
+      const chunked = tryChunkBody({
+        file: ctx.file,
+        source: ctx.source,
+        qualifiedName: qualified,
+        bareName: name,
+        kind: 'method',
+        body,
+        chunkOptions: ctx.chunkOptions,
+        callerStack: ctx.callerStack,
+      });
+      if (chunked) {
+        ctx.symbols.push(...chunked.symbols);
+        chunked.walkStatements((stmt) => visit(stmt, ctx));
+        return;
+      }
       const sym = mk(ctx, node, name, qualified, 'method');
       ctx.symbols.push(sym);
       ctx.callerStack.push(sym.id);
-      const body = node.childForFieldName('body');
       if (body) visit(body, ctx);
       ctx.callerStack.pop();
       return;

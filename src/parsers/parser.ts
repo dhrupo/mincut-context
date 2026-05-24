@@ -1,4 +1,5 @@
 import type { NodeKind } from '../core/graph.js';
+export type { NodeKind } from '../core/graph.js';
 
 export interface ParsedSymbol {
   id: string;             // canonical id: `${file}:${qualifiedName}`

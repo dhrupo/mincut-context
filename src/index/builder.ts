@@ -21,12 +21,9 @@ function parseForExt(
 ): ParseResult | null {
   const ext = path.extname(file);
   if (TS_EXT.has(ext)) return parseTypeScript(file, source, chunkOptions);
-  if (PY_EXT.has(ext)) return parsePython(file, source);
-  if (PHP_EXT.has(ext)) return parsePhp(file, source);
-  if (VUE_EXT.has(ext)) {
-    // Vue forwards to TS for the script block — pass chunkOptions through.
-    return parseVueSfc(file, source, chunkOptions);
-  }
+  if (PY_EXT.has(ext)) return parsePython(file, source, chunkOptions);
+  if (PHP_EXT.has(ext)) return parsePhp(file, source, chunkOptions);
+  if (VUE_EXT.has(ext)) return parseVueSfc(file, source, chunkOptions);
   return null;
 }
 
