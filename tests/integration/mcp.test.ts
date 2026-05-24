@@ -64,6 +64,26 @@ describe('MCP handler (pure functions — no JSON-RPC plumbing)', () => {
     expect(fresh.isError).toBe(true);
   });
 
+  it('pack_context tool schema exposes cache and communityBoost', async () => {
+    const res = await handleMcpCall({ name: 'list_tools', arguments: {} });
+    const list = JSON.parse(res.content[0].text);
+    const pack = list.tools.find((t: { name: string }) => t.name === 'pack_context');
+    const props = pack.inputSchema.properties;
+    expect(props.cache).toBeDefined();
+    expect(props.communityBoost).toBeDefined();
+    expect(props.cacheDir).toBeDefined();
+  });
+
+  it('pack_context honors cache=true via MCP', async () => {
+    const res = await handleMcpCall({
+      name: 'pack_context',
+      arguments: { task: 'login', repo: root, budget: 500, cache: true },
+    });
+    expect(res.isError).toBeFalsy();
+    const parsed = JSON.parse(res.content[0].text);
+    expect(parsed.files).toBeInstanceOf(Array);
+  });
+
   it('lists three tools', async () => {
     const res = await handleMcpCall({ name: 'list_tools', arguments: {} });
     const list = JSON.parse(res.content[0].text);

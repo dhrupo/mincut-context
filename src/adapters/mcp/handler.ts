@@ -58,6 +58,20 @@ export const TOOLS = [
           items: { type: 'string' },
           description: 'Extra ignore patterns appended to .gitignore.',
         },
+        cache: {
+          type: 'boolean',
+          description: 'Use persistent parse cache at <repo>/.mincut-cache/ for fast repeat calls.',
+          default: false,
+        },
+        cacheDir: {
+          type: 'string',
+          description: 'Override cache directory (absolute path). Only used when cache=true.',
+        },
+        communityBoost: {
+          type: 'number',
+          description: 'Louvain same-community boost factor. 0 disables, 0.5 default.',
+          default: 0.5,
+        },
       },
       required: ['task', 'repo'],
     },
@@ -118,12 +132,25 @@ async function handlePack(args: Record<string, unknown>): Promise<McpResponse> {
   const seeds = (args.seeds as number) ?? 8;
   const include = args.include as string[] | undefined;
   const exclude = args.exclude as string[] | undefined;
+  const cache = args.cache as boolean | undefined;
+  const cacheDir = args.cacheDir as string | undefined;
+  const communityBoost = args.communityBoost as number | undefined;
 
-  const result = await pack({ task, repo, budget, seeds, include, exclude });
+  const result = await pack({
+    task,
+    repo,
+    budget,
+    seeds,
+    include,
+    exclude,
+    cache,
+    cacheDir,
+    communityBoost,
+  });
   session.lastResult = result;
   session.lastRepo = repo;
-  // Re-index so expand_node can use a fresh graph.
-  session.lastGraph = indexRepo(repo, { include, exclude }).graph;
+  // Re-index so expand_node can use a fresh graph (shares cache if enabled).
+  session.lastGraph = indexRepo(repo, { include, exclude, cache, cacheDir }).graph;
   return ok(result);
 }
 
