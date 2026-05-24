@@ -12,7 +12,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
-[![tests](https://img.shields.io/badge/tests-236%20passing-brightgreen)](./tests)
+[![tests](https://img.shields.io/badge/tests-242%20passing-brightgreen)](./tests)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
@@ -29,6 +29,8 @@ npx mincut-context pack "fix the login validation bug" --budget 4000
 </div>
 
 > One sentence: an agent that opens `mincut-context` first gets the minimum cohesive *region* of code its task depends on — not a grep hit, not a whole file, not the whole repo.
+
+> **What's new in v1.5** — smarter seed scoring (path + kind + test-dir penalty) · gzip-compressed cache (~3.5× smaller) · automatic tail-trim · `mcx doctor` self-check · MCP graph-navigation tools (`find_callers`, `find_callees`, `search_symbols`). See [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
@@ -104,7 +106,10 @@ Optional peer dependencies:
 ## Quick start
 
 ```bash
-# 1. Index any repo once (warms the cache)
+# 0. (One-time) sanity check the environment
+mcx doctor
+
+# 1. Index any repo once (warms the gzipped cache)
 mcx index . --cache
 
 # 2. Ask for context for a task
@@ -164,6 +169,7 @@ mcx pack "..." --lsp                                       # type-aware call res
 mcx pack "..." --verbose                                   # algorithm trace
 mcx watch "..." --debounce 300                             # re-pack on file change
 mcx index . --cache                                        # warm the parse cache
+mcx doctor                                                 # environment self-check
 mcx mcp                                                    # run as MCP server
 ```
 
@@ -176,10 +182,11 @@ const result = await pack({
   task: 'fix the login validation bug',
   repo: process.cwd(),
   budget: 4000,
-  cache: true,            // persistent parse cache
+  cache: true,            // persistent gzipped parse cache
   communityBoost: 0.5,    // Louvain intra-cluster bias
   parallel: 4,            // worker-thread parsing
   chunk: { enabled: true, maxTokens: 400 },  // sub-symbol chunking
+  trimScoreRatio: 0.02,   // drop tail files below 2% of top score
 });
 
 for (const f of result.files) {
@@ -301,7 +308,7 @@ That's exactly the Stripe cluster — no UI noise, no test fixtures, no unrelate
 | Vue SFC | ✅ v1.2 | `.vue`, `<script>` Options API + `<script setup>` Composition API, `lang="ts"` honored |
 | Rust, Go, Svelte, … | community welcome | tree-sitter grammar + symbol queries |
 
-**Sub-symbol chunking** is supported on all 4 languages above as of v1.4 (was TS/JS/Vue only in v1.3).
+**Sub-symbol chunking** is supported on all 4 languages above as of v1.4 (TS/JS/Vue + Python + PHP).
 
 **LSP-backed call resolution** currently covers TypeScript / JavaScript / Vue via `typescript-language-server`. Adding Python (pyright) or PHP (intelephense) is a small adapter.
 
@@ -338,6 +345,7 @@ Options:
       --chunk                     Split large functions into sub-symbol chunks (TS/JS/Vue/Py/PHP)
       --chunk-tokens <n>          Token threshold for chunking (default 400)
       --lsp                       Refine call edges via typescript-language-server
+      --trim-ratio <r>            Drop tail files scoring < r × top file (default 0.02, 0 disables)
 ```
 
 Other commands:
