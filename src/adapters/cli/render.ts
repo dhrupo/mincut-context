@@ -91,6 +91,84 @@ export function renderVerboseTrace(result: PackResult, options: RenderOptions): 
   return lines.join('\n') + '\n';
 }
 
+interface TreeNode {
+  name: string;
+  children: Map<string, TreeNode>;
+  isFile: boolean;
+  tokens: number;
+  score: number;
+  ranges?: Array<{ start: number; end: number }>;
+}
+
+export function renderTree(result: PackResult, options: RenderOptions): string {
+  const c = options.color ? COLOR : (Object.fromEntries(Object.keys(COLOR).map((k) => [k, ''])) as typeof COLOR);
+  if (result.files.length === 0) {
+    return `${c.yellow}no context selected${c.reset}\n${c.dim}${result.explain}${c.reset}\n`;
+  }
+
+  const root: TreeNode = { name: '', children: new Map(), isFile: false, tokens: 0, score: 0 };
+  for (const file of result.files) {
+    const segments = file.path.split('/').filter(Boolean);
+    let node = root;
+    for (let i = 0; i < segments.length; i++) {
+      const isLast = i === segments.length - 1;
+      const seg = segments[i];
+      let child = node.children.get(seg);
+      if (!child) {
+        child = {
+          name: seg,
+          children: new Map(),
+          isFile: isLast,
+          tokens: 0,
+          score: 0,
+        };
+        node.children.set(seg, child);
+      }
+      child.tokens += file.tokens;
+      child.score += file.score;
+      if (isLast) {
+        child.ranges = file.ranges;
+      }
+      node = child;
+    }
+  }
+
+  const lines: string[] = [];
+  walkTree(root, '', lines, c);
+
+  lines.push('');
+  const pct = options.budget > 0 ? Math.round((result.tokens / options.budget) * 100) : 0;
+  lines.push(
+    `${c.bold}selected${c.reset} ${result.graph.selected} symbols · ` +
+      `${c.bold}cut${c.reset} ${result.graph.cutCost.toFixed(1)} · ` +
+      `${c.bold}${result.tokens}${c.reset} / ${options.budget} tokens (${pct}%)`,
+  );
+  return lines.join('\n') + '\n';
+}
+
+function walkTree(node: TreeNode, indent: string, lines: string[], c: typeof COLOR): void {
+  const childArr = [...node.children.values()].sort((a, b) => {
+    if (a.isFile !== b.isFile) return a.isFile ? 1 : -1; // directories first
+    return b.score - a.score;
+  });
+  for (let i = 0; i < childArr.length; i++) {
+    const child = childArr[i];
+    const last = i === childArr.length - 1;
+    const branch = last ? '└── ' : '├── ';
+    const cont = last ? '    ' : '│   ';
+    const ranges = child.ranges?.map((r) => `${r.start}-${r.end}`).join(',');
+    const right = child.isFile
+      ? `  ${c.cyan}${child.score.toFixed(3)}${c.reset} ${c.dim}${child.tokens} tok${ranges ? ` lines ${ranges}` : ''}${c.reset}`
+      : `  ${c.dim}(${child.tokens} tok, ${child.children.size} ${child.children.size === 1 ? 'item' : 'items'})${c.reset}`;
+    const labelColor = child.isFile ? c.green : c.bold;
+    const slash = child.isFile ? '' : '/';
+    lines.push(`${indent}${branch}${labelColor}${child.name}${slash}${c.reset}${right}`);
+    if (!child.isFile && child.children.size > 0) {
+      walkTree(child, indent + cont, lines, c);
+    }
+  }
+}
+
 export function renderMarkdown(result: PackResult, options: RenderOptions): string {
   const lines: string[] = [];
   lines.push(`# Context for: ${escape(options.task ?? '')}`);

@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import path from 'node:path';
 import { pack, type PackResult } from '../../select/pack.js';
 import { indexRepo } from '../../index/builder.js';
-import { renderJson, renderMarkdown, renderPlain, renderVerboseTrace } from './render.js';
+import { renderJson, renderMarkdown, renderPlain, renderTree, renderVerboseTrace } from './render.js';
 
 async function runInteractive(result: PackResult, budget: number): Promise<PackResult> {
   const React = (await import('react')).default;
@@ -47,7 +47,7 @@ program
   .option('--alpha <number>', 'PageRank damping factor', (v) => Number(v), 0.85)
   .option('--include <pattern...>', 'Restrict to glob patterns (e.g. src/auth/**)')
   .option('--exclude <pattern...>', 'Extra ignore patterns appended to .gitignore')
-  .option('-f, --format <fmt>', 'Output format: plain | json | markdown', 'plain')
+  .option('-f, --format <fmt>', 'Output format: plain | tree | json | markdown', 'plain')
   .option('--no-color', 'Disable colored output')
   .option('--embed', 'Use semantic embeddings (downloads ~22 MB model on first run)', false)
   .option('--embed-weight <number>', 'Blend factor 0..1 (0=keyword, 1=embedding only)', (v) => Number(v), 0.5)
@@ -97,6 +97,12 @@ program
       if (fmt === 'json') {
         process.stdout.write(renderJson(finalResult));
         process.stdout.write('\n');
+      } else if (fmt === 'tree') {
+        process.stdout.write(renderTree(finalResult, { color, budget: opts.budget }));
+        if (opts.verbose && finalResult.trace) {
+          process.stdout.write('\n');
+          process.stdout.write(renderVerboseTrace(finalResult, { color, budget: opts.budget }));
+        }
       } else if (fmt === 'markdown' || fmt === 'md') {
         process.stdout.write(renderMarkdown(finalResult, { color, budget: opts.budget, task }));
       } else {
