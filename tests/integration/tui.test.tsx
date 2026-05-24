@@ -130,4 +130,64 @@ describe('ReviewApp (Ink TUI)', () => {
     expect(out).toMatch(/exclude/i);
     expect(out).toMatch(/enter/i);
   });
+
+  it('G jumps to the last row', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(ReviewApp, { initial: sample(), budget: 1000, onSubmit: () => {} }),
+    );
+    await flush();
+    stdin.write('G');
+    await flush();
+    const out = lastFrame() ?? '';
+    const lines = out.split('\n');
+    const usersLine = lines.find((l) => l.includes('users.ts'))!;
+    expect(usersLine).toMatch(/▶/);
+  });
+
+  it('gg jumps to the first row', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(ReviewApp, { initial: sample(), budget: 1000, onSubmit: () => {} }),
+    );
+    await flush();
+    stdin.write('G');
+    await flush();
+    stdin.write('gg');
+    await flush();
+    const out = lastFrame() ?? '';
+    const lines = out.split('\n');
+    const loginLine = lines.find((l) => l.includes('login.ts'))!;
+    expect(loginLine).toMatch(/▶/);
+  });
+
+  it('/ filters the list by typed substring', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(ReviewApp, { initial: sample(), budget: 1000, onSubmit: () => {} }),
+    );
+    await flush();
+    stdin.write('/');
+    await flush();
+    stdin.write('sess');
+    await flush();
+    const out = lastFrame() ?? '';
+    // session.ts must remain; login.ts and users.ts are filtered out.
+    expect(out).toContain('session.ts');
+    expect(out).not.toContain('login.ts');
+    expect(out).not.toContain('users.ts');
+  });
+
+  it('Escape clears an active filter', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(ReviewApp, { initial: sample(), budget: 1000, onSubmit: () => {} }),
+    );
+    await flush();
+    stdin.write('/');
+    stdin.write('sess');
+    await flush();
+    stdin.write(''); // Esc
+    await flush();
+    const out = lastFrame() ?? '';
+    expect(out).toContain('login.ts');
+    expect(out).toContain('session.ts');
+    expect(out).toContain('users.ts');
+  });
 });

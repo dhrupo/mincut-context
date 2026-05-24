@@ -5,7 +5,11 @@ import { pack, type PackResult } from '../../select/pack.js';
 import { indexRepo } from '../../index/builder.js';
 import { renderJson, renderMarkdown, renderPlain, renderTree, renderVerboseTrace } from './render.js';
 
-async function runInteractive(result: PackResult, budget: number): Promise<PackResult> {
+async function runInteractive(
+  result: PackResult,
+  budget: number,
+  repo: string,
+): Promise<PackResult> {
   const React = (await import('react')).default;
   const { render } = await import('ink');
   const { ReviewApp } = await import('./tui.js');
@@ -15,6 +19,7 @@ async function runInteractive(result: PackResult, budget: number): Promise<PackR
       React.createElement(ReviewApp, {
         initial: result,
         budget,
+        repo,
         onSubmit: (paths: string[]) => {
           const keep = new Set(paths);
           resolve({
@@ -96,7 +101,7 @@ program
 
       let finalResult = result;
       if (opts.interactive && process.stdout.isTTY) {
-        finalResult = await runInteractive(result, opts.budget);
+        finalResult = await runInteractive(result, opts.budget, path.resolve(opts.repo));
       }
 
       if (fmt === 'json') {
