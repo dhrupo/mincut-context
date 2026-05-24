@@ -95,6 +95,46 @@ export const TOOLS = [
       required: ['node'],
     },
   },
+  {
+    name: 'find_callers',
+    description:
+      'Return the set of symbols that call the given symbol (incoming call edges). ' +
+      'Useful for "who uses this function?".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        node: { type: 'string', description: 'Symbol id whose callers we want.' },
+      },
+      required: ['node'],
+    },
+  },
+  {
+    name: 'find_callees',
+    description:
+      'Return the set of symbols called BY the given symbol (outgoing call edges). ' +
+      'Useful for "what does this function depend on?".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        node: { type: 'string', description: 'Symbol id whose callees we want.' },
+      },
+      required: ['node'],
+    },
+  },
+  {
+    name: 'search_symbols',
+    description:
+      'Search the symbol graph for symbols whose name or path contains the query (case-insensitive). ' +
+      'Returns up to `limit` matches sorted by relevance.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Substring to search for in symbol names / paths.' },
+        limit: { type: 'number', default: 20 },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 export async function handleMcpCall(call: McpCall): Promise<McpResponse> {
@@ -115,6 +155,15 @@ export async function handleMcpCall(call: McpCall): Promise<McpResponse> {
 
       case 'expand_node':
         return handleExpand(call.arguments);
+
+      case 'find_callers':
+        return handleCallers(call.arguments);
+
+      case 'find_callees':
+        return handleCallees(call.arguments);
+
+      case 'search_symbols':
+        return handleSearch(call.arguments);
 
       default:
         return error(`unknown tool: ${call.name}`);
@@ -172,6 +221,54 @@ function handleExpand(args: Record<string, unknown>): McpResponse {
     weight: e.data.weight,
   }));
   return ok({ node, data, neighbors: [...out.map((o) => o.target), ...incoming.map((i) => i.source)], out, incoming });
+}
+
+function handleCallers(args: Record<string, unknown>): McpResponse {
+  if (!session.lastGraph) return error('call pack_context first');
+  const node = stringArg(args, 'node');
+  if (!node) return error('node is required');
+  const graph = session.lastGraph;
+  if (!graph.hasNode(node)) return error(`unknown node: ${node}`);
+  const callers = [...graph.inEdges(node)]
+    .filter((e) => e.data.kind === 'call')
+    .map((e) => ({ caller: e.target, weight: e.data.weight }));
+  return ok({ node, callers });
+}
+
+function handleCallees(args: Record<string, unknown>): McpResponse {
+  if (!session.lastGraph) return error('call pack_context first');
+  const node = stringArg(args, 'node');
+  if (!node) return error('node is required');
+  const graph = session.lastGraph;
+  if (!graph.hasNode(node)) return error(`unknown node: ${node}`);
+  const callees = [...graph.outEdges(node)]
+    .filter((e) => e.data.kind === 'call')
+    .map((e) => ({ callee: e.target, weight: e.data.weight }));
+  return ok({ node, callees });
+}
+
+function handleSearch(args: Record<string, unknown>): McpResponse {
+  if (!session.lastGraph) return error('call pack_context first');
+  const q = stringArg(args, 'query');
+  if (!q) return error('query is required');
+  const limit = (args.limit as number) ?? 20;
+  const needle = q.toLowerCase();
+  const graph = session.lastGraph;
+  type Hit = { id: string; score: number };
+  const hits: Hit[] = [];
+  for (const id of graph.nodes()) {
+    const data = graph.getNode(id);
+    if (!data) continue;
+    const idLower = id.toLowerCase();
+    const nameLower = (data.name ?? '').toLowerCase();
+    let score = 0;
+    if (nameLower === needle) score += 3;
+    else if (nameLower.includes(needle)) score += 2;
+    if (idLower.includes(needle)) score += 1;
+    if (score > 0) hits.push({ id, score });
+  }
+  hits.sort((a, b) => b.score - a.score);
+  return ok({ query: q, hits: hits.slice(0, limit) });
 }
 
 function stringArg(args: Record<string, unknown>, key: string): string | null {
