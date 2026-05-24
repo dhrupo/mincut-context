@@ -245,7 +245,9 @@ That's exactly the analytics slice — no UI noise, no test fixtures, no unrelat
 |---|---|---|
 | TypeScript / JavaScript | ✅ v1.0 | `.ts .tsx .js .jsx .mjs .cjs` |
 | Python | ✅ v1.0 | `.py .pyi`, relative imports, decorators, methods |
-| Rust, Go, PHP, Vue SFC, … | community welcome | tree-sitter grammar + symbol queries |
+| **PHP** | ✅ **v1.2** | `.php`, namespaces, traits, `use` (incl. grouped + aliased), `$this->`, `Foo::bar()` |
+| **Vue SFC** | ✅ **v1.2** | `.vue`, `<script>` Options API + `<script setup>` Composition API, `lang="ts"` honored |
+| Rust, Go, Svelte, … | community welcome | tree-sitter grammar + symbol queries |
 
 Adding a language is one parser file implementing `LanguageParser` + one line in `parseForExt`. See [`src/parsers/py.ts`](./src/parsers/py.ts) as a template.
 
@@ -312,8 +314,11 @@ mcx --version      print the installed version
 - [x] Ink TUI **(v1.0)**
 - [x] Persistent on-disk parse cache (incremental reindex) **(v1.1)** — 5.2× warm-run speedup
 - [x] Louvain community boost **(v1.1)**
-- [ ] Vue SFC / Svelte parsers
-- [ ] Rust / Go parsers
+- [x] **PHP parser** **(v1.2)**
+- [x] **Vue SFC parser** **(v1.2)**
+- [ ] Svelte / Rust / Go parsers
+- [ ] Sub-symbol AST-block chunking
+- [ ] Parallel parsing (worker pool)
 - [ ] LSP-backed type-aware call resolution
 
 ---

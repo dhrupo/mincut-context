@@ -1,6 +1,6 @@
 {
   "name": "mincut-context",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Token-minimal context selection for AI coding agents. Builds a symbol graph of your repo and uses personalized PageRank + budget-constrained min-cut to pick the smallest provably-relevant context for any task.",
   "type": "module",
   "main": "./dist/adapters/lib/index.js",
