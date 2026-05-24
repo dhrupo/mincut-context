@@ -1,4 +1,6 @@
-# mincut-context — Spec (v1.0.0)
+# mincut-context — Spec
+
+**Current release:** v1.0.0 (shipped). **In development:** v1.1.0 (parse cache + Louvain).
 
 > Token-minimal context selection for AI coding agents. Build a symbol graph of your repo and use personalized PageRank + budget-constrained min-cut to pick the smallest provably-relevant context for any task.
 
@@ -177,14 +179,18 @@ Semver from `1.0.0`. Each slice ships as a minor (`1.1.0`, `1.2.0`…) or patch 
 
 | Slice | Feature | Status |
 |---|---|---|
-| 1 | Core: graph + PageRank + greedy cut | in-progress |
-| 2 | Parsers: TS/JS via tree-sitter | pending |
-| 3 | Index: walker + JSON cache | pending |
-| 4 | Seeds: keyword + symbol IDF | pending |
-| 5 | Library API (pack pipeline) | pending |
-| 6 | CLI: commander + plain output | pending |
-| 7 | TUI: Ink interactive review | pending |
-| 8 | MCP server | pending |
-| 9 | Python parser parity + docs | pending |
-| 10 (post-1.0) | Louvain communities boost | future |
-| 11 (post-1.0) | Local embeddings via `@xenova/transformers` | future |
+| 1 | Core: graph + PageRank + greedy min-cut | ✅ shipped (v1.0.0) |
+| 2 | Parsers: TS/JS via tree-sitter | ✅ shipped (v1.0.0) |
+| 3a | Index: repo walker + cross-file resolution | ✅ shipped (v1.0.0) |
+| 3b | Index: persistent `.mincut-cache/` (incremental reparse) | 🔜 v1.1.0 |
+| 4 | Seeds: keyword + symbol IDF | ✅ shipped (v1.0.0) |
+| 5 | Library API (pack pipeline) | ✅ shipped (v1.0.0) |
+| 6 | CLI: commander + plain / JSON / Markdown output | ✅ shipped (v1.0.0) |
+| 7 | TUI: Ink interactive pin / exclude | ✅ shipped (v1.0.0) |
+| 8 | MCP server (stdio JSON-RPC) | ✅ shipped (v1.0.0) |
+| 9 | Python parser parity | ✅ shipped (v1.0.0) |
+| 10 | Louvain communities + intra-cluster boost | 🔜 v1.1.0 |
+| 11 | Local embeddings via `@xenova/transformers` | ✅ shipped (v1.0.0) |
+| 12 (post-1.1) | Vue SFC / Svelte parsers | future |
+| 13 (post-1.1) | Rust / Go parsers | future |
+| 14 (post-1.1) | LSP-backed type-aware call resolution | future |
