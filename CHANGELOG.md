@@ -3,6 +3,43 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.0 — 2026-05-24
+
+A "developer experience" release — seven user-visible features land.
+
+### Added
+
+- **MCP `pack_context` tool now exposes `cache`, `cacheDir`, `communityBoost`.**
+  Agents using mincut-context over MCP can now opt into the v1.1 features that
+  were previously CLI-only.
+- **`-v / --verbose` algorithm trace.** Prints seeds, top-ranked nodes,
+  selection order, and phase timings (index / rank / select / total).
+  Helps debug "why did it pick that?". Exposed as `PackResult.trace` on the
+  library API too.
+- **`--format tree`** directory-grouped output:
+  ```
+  └── src/  (1484 tok, 3 items)
+      ├── core/  (819 tok)
+      │   ├── pagerank.ts  0.391 613 tok lines 34-113
+      │   └── graph.ts     0.102 206 tok …
+  ```
+- **`-j / --parallel <n>` workers.** node:worker_threads pool for parsing.
+  Real-world: FluentForm cold index 1344 ms → 493 ms (2.7×).
+- **`mcx watch '<task>'` long-running mode.** Re-packs on any source file
+  change, debounced. Plain output prefixed with timestamp markers.
+- **`--chunk [--chunk-tokens N]` sub-symbol chunking** (TS/JS/Vue).
+  When a function body exceeds N tokens, split at top-level statement
+  boundaries into sub-symbols `parent#0`, `parent#1`, etc.  Lets the
+  greedy include just the relevant slice of a 500-line function instead
+  of all-or-nothing.
+- **TUI v2** (`-i / --interactive`):
+  - Split-pane layout — file list left, source preview right
+  - Preview reads actual file content for selected line ranges
+  - Vim navigation: j/k arrows, gg/G top/bottom, /filter, Esc clear, Enter, q
+  - Live fuzzy filter on path substring
+
+### Tests: 198 across 29 files (+33 net)
+
 ## 1.2.0 — 2026-05-24
 
 ### Added

@@ -277,6 +277,13 @@ Options:
       --cache                     Use persistent parse cache (.mincut-cache/) — fast repeat runs
       --cache-dir <path>          Override cache directory (absolute path)
       --community-boost <number>  Louvain same-community boost (default 0.5, 0 = disabled)
+  -v, --verbose                   Print algorithm trace (seeds, ranks, selection, timings)
+  -j, --parallel <n>              Use n worker threads to parse in parallel (default 0)
+      --chunk                     Split large functions into sub-symbol chunks (TS/JS/Vue)
+      --chunk-tokens <n>          Token threshold for chunking (default 400)
+
+mcx watch '<task>' --repo . --budget 4000 [--debounce 300] [--cache] [--parallel n]
+  Long-running mode that re-packs the context on any source file change.
 ```
 
 Other commands:
@@ -316,9 +323,14 @@ mcx --version      print the installed version
 - [x] Louvain community boost **(v1.1)**
 - [x] **PHP parser** **(v1.2)**
 - [x] **Vue SFC parser** **(v1.2)**
+- [x] **Parallel parsing (worker pool)** **(v1.3)** — 2.7× cold-index speedup
+- [x] **Sub-symbol AST-block chunking (TS/JS/Vue)** **(v1.3)**
+- [x] **`mcx watch` long-running mode** **(v1.3)**
+- [x] **TUI v2: preview pane + vim keys + fuzzy filter** **(v1.3)**
+- [x] **`--verbose` algorithm trace** **(v1.3)**
+- [x] **`--format tree` directory-grouped output** **(v1.3)**
+- [ ] Sub-symbol chunking for Python and PHP
 - [ ] Svelte / Rust / Go parsers
-- [ ] Sub-symbol AST-block chunking
-- [ ] Parallel parsing (worker pool)
 - [ ] LSP-backed type-aware call resolution
 
 ---
