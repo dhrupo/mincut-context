@@ -145,6 +145,47 @@ program
   });
 
 program
+  .command('watch <task...>')
+  .description('Long-running mode: re-pack the context whenever any source file changes')
+  .option('-r, --repo <path>', 'Repository root', process.cwd())
+  .option('-b, --budget <tokens>', 'Token budget', (v) => Number(v), 4000)
+  .option('-k, --seeds <count>', 'Top-k seeds', (v) => Number(v), 8)
+  .option('--include <pattern...>', 'Restrict to glob patterns')
+  .option('--exclude <pattern...>', 'Extra ignore patterns')
+  .option('--debounce <ms>', 'Debounce window in ms before re-packing', (v) => Number(v), 300)
+  .option('--cache', 'Use persistent parse cache', false)
+  .option('--community-boost <number>', 'Louvain community boost', (v) => Number(v), 0.5)
+  .option('-j, --parallel <n>', 'Parallel parser workers', (v) => Number(v), 0)
+  .option('--no-color', 'Disable colored output')
+  .action(async (taskWords: string[], opts) => {
+    const task = taskWords.join(' ').trim();
+    if (!task) {
+      process.stderr.write('error: task is required\n');
+      process.exit(1);
+    }
+    const { runWatchCli } = await import('./watch.js');
+    const w = runWatchCli({
+      task,
+      repo: path.resolve(opts.repo),
+      budget: opts.budget,
+      seeds: opts.seeds,
+      include: opts.include,
+      exclude: opts.exclude,
+      debounceMs: opts.debounce,
+      cache: opts.cache,
+      communityBoost: opts.communityBoost,
+      parallel: opts.parallel,
+      color: Boolean(opts.color),
+    });
+    const shutdown = async (): Promise<void> => {
+      await w.stop();
+      process.exit(0);
+    };
+    process.on('SIGINT', () => void shutdown());
+    process.on('SIGTERM', () => void shutdown());
+  });
+
+program
   .command('mcp')
   .description('Run as an MCP server over stdio (slice 8 — placeholder)')
   .action(async () => {
