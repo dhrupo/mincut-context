@@ -12,7 +12,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
-[![tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)](./tests)
+[![tests](https://img.shields.io/badge/tests-236%20passing-brightgreen)](./tests)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
@@ -144,6 +144,9 @@ Your agent now has three tools:
 | `pack_context(task, repo, budget?, cache?, cacheDir?, communityBoost?)` | Get a token-minimal, structurally-relevant context window |
 | `expand_node(node, depth?)` | Pull more around a specific symbol |
 | `explain_selection()` | The rationale for the last selection |
+| `find_callers(node)` | Symbols that call this one (incoming edges) |
+| `find_callees(node)` | Symbols this one calls (outgoing edges) |
+| `search_symbols(query, limit?)` | Substring search across the cached graph |
 
 ### 2. As a CLI
 
@@ -343,6 +346,7 @@ Other commands:
 mcx watch '<task>' --repo . --budget 4000 [--debounce 300] [--cache] [--parallel n]
 mcx index [path] [--cache] [--include glob]
 mcx mcp                                                # run as MCP server over stdio
+mcx doctor                                             # environment self-check
 ```
 
 </details>
@@ -382,6 +386,11 @@ mcx mcp                                                # run as MCP server over 
 - [x] `--format tree` directory-grouped output **(v1.3)**
 - [x] Sub-symbol chunking for Python + PHP **(v1.4)**
 - [x] LSP-backed type-aware call resolution **(v1.4)** — typescript-language-server
+- [x] Path-aware + kind-aware seed scoring + test-dir penalty **(v1.5)**
+- [x] gzip-compressed parse cache **(v1.5)** — ~3.5× smaller on disk
+- [x] Tail-file trimming **(v1.5)** — drops weak attachment-only files
+- [x] `mcx doctor` environment self-check **(v1.5)**
+- [x] MCP graph-navigation tools: find_callers, find_callees, search_symbols **(v1.5)**
 - [ ] Pyright / Intelephense LSP adapters
 - [ ] Svelte / Rust / Go parsers
 

@@ -3,6 +3,49 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.5.0 — 2026-05-24
+
+A quality + polish release.  Five improvements land; default behavior
+gets better without any flag changes.
+
+### Improvements
+
+- **Smarter seed scoring.**  Three orthogonal changes to `scoreSeeds`:
+  - File-path tokens now contribute, split into directory tokens
+    (boost ×0.7 — "this code belongs to topic X") and filename tokens
+    (×0.4 — basenames are noisy).
+  - Symbol kind weighting — functions/methods/classes get full weight,
+    variables/types/files less.  Ties break toward the more agent-actionable
+    unit.
+  - Test-directory penalty — files under `__tests__/`, `tests/`, `*.test.ts`
+    etc. get halved unless the task itself mentions tests/specs/e2e.
+- **Compressed parse cache** — entries are now `.json.gz`.  ~3.5× smaller
+  on disk (FluentForm: ~10-12 MB → 3.2 MB).
+- **Trim weak tail files** — files scoring below 2% of the top file's
+  score are dropped from the final selection by default.  Configurable via
+  `--trim-ratio <r>` or `pack({ trimScoreRatio })`.  The top file is
+  always retained.
+
+### Added
+
+- **`mcx doctor`** — environment self-check.  Reports Node version,
+  tree-sitter availability, per-language grammars, optional LSP / embedder
+  binaries, cache size, and repo-path sanity.  Exit code 1 if any check
+  fails.
+- **MCP graph-navigation tools** — `find_callers(node)`, `find_callees(node)`,
+  `search_symbols(query)` operate on the cached graph from the most recent
+  `pack_context` call.  Agents can now traverse the code graph without
+  re-packing.
+
+### Internals
+
+- Cache directory now stores `*.json.gz` files (gunzip on read, gzip on
+  write — both synchronous).  Legacy `*.json` entries from v1.1–v1.4 are
+  treated as misses; on next run they'll be replaced.
+- `PackResult.tokens` reflects the post-trim total.
+
+### Tests: 236 across 37 files (+18 net)
+
 ## 1.4.1 — 2026-05-24
 
 ### Fixed
