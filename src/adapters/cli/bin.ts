@@ -198,6 +198,18 @@ program
   });
 
 program
+  .command('doctor')
+  .description('Check environment: Node version, tree-sitter, grammars, LSP, embedder, cache')
+  .option('-r, --repo <path>', 'Repository root to inspect', process.cwd())
+  .option('--no-color', 'Disable colored output')
+  .action(async (opts) => {
+    const { runDoctor, renderDoctor } = await import('./doctor.js');
+    const report = runDoctor(path.resolve(opts.repo));
+    process.stdout.write(renderDoctor(report, Boolean(opts.color) && process.stdout.isTTY));
+    if (!report.ok) process.exit(1);
+  });
+
+program
   .command('mcp')
   .description('Run as an MCP server over stdio (slice 8 — placeholder)')
   .action(async () => {
