@@ -36,6 +36,8 @@ export interface PackOptions {
    * with any seed.  Default 0.5.  Set to 0 to disable the boost entirely.
    */
   communityBoost?: number;
+  /** Include `trace` field in PackResult with algorithm internals. Default false. */
+  verbose?: boolean;
 }
 
 export interface FileRange {
@@ -53,6 +55,14 @@ export interface PackedFile {
   communities?: number[];
 }
 
+export interface PackTrace {
+  seeds: Array<{ id: string; score: number }>;
+  topRanked: Array<{ id: string; rank: number }>;
+  selectionOrder: Array<{ id: string; reason: string; tokens: number; rank: number }>;
+  timings: { indexMs: number; rankMs: number; selectMs: number; totalMs: number };
+  cache?: { hits: number; misses: number };
+}
+
 export interface PackResult {
   files: PackedFile[];
   tokens: number;
@@ -63,6 +73,8 @@ export interface PackResult {
     totalSymbols: number;
   };
   explain: string;
+  /** Present only when options.verbose was true. */
+  trace?: PackTrace;
 }
 
 export async function pack(options: PackOptions): Promise<PackResult> {
@@ -79,11 +91,14 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     cache,
     cacheDir,
     communityBoost = 0.5,
+    verbose = false,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
+  const t0 = Date.now();
   const walkOpts: WalkOptions = { include, exclude };
   const { graph, stats } = indexRepo(repo, { ...walkOpts, cache, cacheDir });
+  const indexMs = Date.now() - t0;
 
   if (graph.order() === 0) {
     return emptyResult('No supported source files found.', stats.symbols);
@@ -115,12 +130,15 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     );
   }
 
+  const tRank0 = Date.now();
   const ranks = personalizedPageRank(graph, { seeds: fittedSeeds, alpha });
+  const rankMs = Date.now() - tRank0;
 
   // Detect Louvain communities once and pass to greedySelect.  Deterministic
   // RNG so results are reproducible across runs (matters for caching tests).
   const communities = communityBoost > 0 ? detectCommunities(graph, { seed: 1 }) : undefined;
 
+  const tSelect0 = Date.now();
   const selection = greedySelect(graph, {
     seeds: new Set(fittedSeeds.keys()),
     ranks,
@@ -128,6 +146,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     communities,
     communityBoost,
   });
+  const selectMs = Date.now() - tSelect0;
 
   // Group selected nodes by file and collapse to line ranges.
   type Acc = {
@@ -172,6 +191,26 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   }
   files.sort((a, b) => b.score - a.score);
 
+  let trace: PackTrace | undefined;
+  if (verbose) {
+    const topRanked = [...ranks.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([id, rank]) => ({ id, rank }));
+    trace = {
+      seeds: [...fittedSeeds.entries()].map(([id, score]) => ({ id, score })),
+      topRanked,
+      selectionOrder: selection.entries.map((e) => ({
+        id: e.id,
+        reason: e.reason,
+        tokens: e.tokens,
+        rank: e.rank,
+      })),
+      timings: { indexMs, rankMs, selectMs, totalMs: Date.now() - t0 },
+      cache: { hits: stats.cacheHits, misses: stats.cacheMisses },
+    };
+  }
+
   return {
     files,
     tokens: selection.tokens,
@@ -182,6 +221,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
       totalSymbols: stats.symbols,
     },
     explain: buildExplain(task, fittedSeeds, selection, files, budget, stats.files),
+    trace,
   };
 }
 

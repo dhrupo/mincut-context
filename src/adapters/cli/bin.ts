@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import path from 'node:path';
 import { pack, type PackResult } from '../../select/pack.js';
 import { indexRepo } from '../../index/builder.js';
-import { renderJson, renderMarkdown, renderPlain } from './render.js';
+import { renderJson, renderMarkdown, renderPlain, renderVerboseTrace } from './render.js';
 
 async function runInteractive(result: PackResult, budget: number): Promise<PackResult> {
   const React = (await import('react')).default;
@@ -56,6 +56,7 @@ program
   .option('--cache', 'Use persistent parse cache at .mincut-cache/ (fast repeat runs)', false)
   .option('--cache-dir <path>', 'Override cache directory (absolute path)')
   .option('--community-boost <number>', 'Louvain same-community boost factor (0 = disabled)', (v) => Number(v), 0.5)
+  .option('-v, --verbose', 'Print algorithm trace (seeds, ranks, selection order, timings)', false)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -83,6 +84,7 @@ program
         cache: opts.cache,
         cacheDir: opts.cacheDir,
         communityBoost: opts.communityBoost,
+        verbose: opts.verbose,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();
@@ -99,6 +101,10 @@ program
         process.stdout.write(renderMarkdown(finalResult, { color, budget: opts.budget, task }));
       } else {
         process.stdout.write(renderPlain(finalResult, { color, budget: opts.budget }));
+        if (opts.verbose && finalResult.trace) {
+          process.stdout.write('\n');
+          process.stdout.write(renderVerboseTrace(finalResult, { color, budget: opts.budget }));
+        }
       }
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`);

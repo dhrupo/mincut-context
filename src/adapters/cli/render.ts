@@ -55,6 +55,42 @@ export function renderJson(result: PackResult): string {
   return JSON.stringify(result, null, 2);
 }
 
+export function renderVerboseTrace(result: PackResult, options: RenderOptions): string {
+  if (!result.trace) return '';
+  const t = result.trace;
+  const c = options.color ? COLOR : (Object.fromEntries(Object.keys(COLOR).map((k) => [k, ''])) as typeof COLOR);
+  const lines: string[] = [];
+  lines.push(`${c.bold}── trace ───────────────────────────────────────${c.reset}`);
+  lines.push(
+    `${c.dim}timings:${c.reset} index ${t.timings.indexMs}ms · rank ${t.timings.rankMs}ms ` +
+      `· select ${t.timings.selectMs}ms · ${c.bold}total ${t.timings.totalMs}ms${c.reset}`,
+  );
+  if (t.cache && (t.cache.hits + t.cache.misses) > 0) {
+    lines.push(`${c.dim}cache: ${t.cache.hits} hit / ${t.cache.misses} miss${c.reset}`);
+  }
+  lines.push('');
+  lines.push(`${c.bold}seeds (${t.seeds.length}):${c.reset}`);
+  for (const s of t.seeds.slice(0, 10)) {
+    lines.push(`  ${c.cyan}${s.score.toFixed(3).padStart(7)}${c.reset}  ${s.id}`);
+  }
+  lines.push('');
+  lines.push(`${c.bold}top-ranked nodes:${c.reset}`);
+  for (const r of t.topRanked.slice(0, 10)) {
+    lines.push(`  ${c.cyan}${r.rank.toFixed(4).padStart(7)}${c.reset}  ${r.id}`);
+  }
+  lines.push('');
+  lines.push(`${c.bold}selection order:${c.reset}`);
+  for (let i = 0; i < t.selectionOrder.length && i < 20; i++) {
+    const e = t.selectionOrder[i];
+    const prefix = (i + 1).toString().padStart(2);
+    lines.push(
+      `  ${c.dim}${prefix}${c.reset}  ${c.cyan}${e.rank.toFixed(4).padStart(7)}${c.reset} ` +
+        `${c.dim}${(e.tokens + ' tok').padEnd(8)}${c.reset} ${e.id}  ${c.dim}${e.reason}${c.reset}`,
+    );
+  }
+  return lines.join('\n') + '\n';
+}
+
 export function renderMarkdown(result: PackResult, options: RenderOptions): string {
   const lines: string[] = [];
   lines.push(`# Context for: ${escape(options.task ?? '')}`);
