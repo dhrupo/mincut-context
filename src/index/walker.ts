@@ -39,7 +39,12 @@ const DEFAULT_EXCLUDES = [
   '*.log',
 ];
 
-const SUPPORTED_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.pyi']);
+const SUPPORTED_EXT = new Set([
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  '.py', '.pyi',
+  '.php',
+  '.vue',
+]);
 
 export function* walk(root: string, options: WalkOptions = {}): IterableIterator<WalkedFile> {
   const maxBytes = options.maxBytes ?? 256 * 1024;

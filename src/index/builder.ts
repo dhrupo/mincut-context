@@ -2,17 +2,23 @@ import path from 'node:path';
 import { SymbolGraph } from '../core/graph.js';
 import { parseTypeScript } from '../parsers/ts.js';
 import { parsePython } from '../parsers/py.js';
+import { parsePhp } from '../parsers/php.js';
+import { parseVueSfc } from '../parsers/vue.js';
 import type { ParseResult, ParsedImport, ParsedSymbol } from '../parsers/parser.js';
 import { walk, type WalkOptions } from './walker.js';
 import { ParseCache, fileFingerprint } from './cache.js';
 
 const TS_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const PY_EXT = new Set(['.py', '.pyi']);
+const PHP_EXT = new Set(['.php']);
+const VUE_EXT = new Set(['.vue']);
 
 function parseForExt(file: string, source: string): ParseResult | null {
   const ext = path.extname(file);
   if (TS_EXT.has(ext)) return parseTypeScript(file, source);
   if (PY_EXT.has(ext)) return parsePython(file, source);
+  if (PHP_EXT.has(ext)) return parsePhp(file, source);
+  if (VUE_EXT.has(ext)) return parseVueSfc(file, source);
   return null;
 }
 
