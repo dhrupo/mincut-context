@@ -1,0 +1,16 @@
+src/
+tests/
+docs/
+coverage/
+.mincut-cache/
+.git/
+.github/
+.vscode/
+.idea/
+*.tsbuildinfo
+tsconfig.json
+tsconfig.build.json
+vitest.config.ts
+.eslintrc*
+.prettierrc*
+SPEC.md

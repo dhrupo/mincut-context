@@ -1,0 +1,94 @@
+{
+  "name": "mincut-context",
+  "version": "1.0.0",
+  "description": "Token-minimal context selection for AI coding agents. Builds a symbol graph of your repo and uses personalized PageRank + budget-constrained min-cut to pick the smallest provably-relevant context for any task.",
+  "type": "module",
+  "main": "./dist/adapters/lib/index.js",
+  "types": "./dist/adapters/lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/adapters/lib/index.d.ts",
+      "import": "./dist/adapters/lib/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/adapters/mcp/index.d.ts",
+      "import": "./dist/adapters/mcp/index.js"
+    }
+  },
+  "bin": {
+    "mcx": "./dist/adapters/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests --max-warnings 0",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "context",
+    "llm",
+    "claude",
+    "codex",
+    "mcp",
+    "tree-sitter",
+    "pagerank",
+    "graph",
+    "code-review",
+    "rag"
+  ],
+  "author": "Dhrupo Nil",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhrupo/mincut-context.git"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@xenova/transformers": "^2.17.2",
+    "commander": "^12.1.0",
+    "graphology": "^0.25.4",
+    "graphology-communities-louvain": "^2.0.1",
+    "graphology-pagerank": "^1.1.0",
+    "ignore": "^6.0.2",
+    "ink": "^5.0.1",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "js-tiktoken": "^1.0.15",
+    "react": "^18.3.1",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-python": "^0.23.6",
+    "tree-sitter-typescript": "^0.23.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "@vitest/coverage-v8": "^2.1.5",
+    "eslint": "^9.15.0",
+    "ink-testing-library": "^4.0.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}
