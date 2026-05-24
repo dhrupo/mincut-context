@@ -55,6 +55,7 @@ program
   .option('-i, --interactive', 'Interactive review — pin/exclude in a TUI before output', false)
   .option('--cache', 'Use persistent parse cache at .mincut-cache/ (fast repeat runs)', false)
   .option('--cache-dir <path>', 'Override cache directory (absolute path)')
+  .option('--community-boost <number>', 'Louvain same-community boost factor (0 = disabled)', (v) => Number(v), 0.5)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -81,6 +82,7 @@ program
         embedWeight: opts.embedWeight,
         cache: opts.cache,
         cacheDir: opts.cacheDir,
+        communityBoost: opts.communityBoost,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();

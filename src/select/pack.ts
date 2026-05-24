@@ -1,4 +1,4 @@
-import { greedySelect, personalizedPageRank } from '../core/index.js';
+import { detectCommunities, greedySelect, personalizedPageRank } from '../core/index.js';
 import type { SymbolGraph } from '../core/index.js';
 import { indexRepo } from '../index/builder.js';
 import type { WalkOptions } from '../index/walker.js';
@@ -31,6 +31,11 @@ export interface PackOptions {
   cache?: boolean;
   /** Override cache directory. */
   cacheDir?: string;
+  /**
+   * Multiplicative boost for selecting nodes that share a Louvain community
+   * with any seed.  Default 0.5.  Set to 0 to disable the boost entirely.
+   */
+  communityBoost?: number;
 }
 
 export interface FileRange {
@@ -44,6 +49,8 @@ export interface PackedFile {
   score: number;          // sum of rank scores for the selected nodes in this file
   tokens: number;
   reasons: string[];
+  /** Louvain community labels touched by nodes selected from this file. */
+  communities?: number[];
 }
 
 export interface PackResult {
@@ -71,6 +78,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     embedWeight = 0.5,
     cache,
     cacheDir,
+    communityBoost = 0.5,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
@@ -108,26 +116,46 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   }
 
   const ranks = personalizedPageRank(graph, { seeds: fittedSeeds, alpha });
+
+  // Detect Louvain communities once and pass to greedySelect.  Deterministic
+  // RNG so results are reproducible across runs (matters for caching tests).
+  const communities = communityBoost > 0 ? detectCommunities(graph, { seed: 1 }) : undefined;
+
   const selection = greedySelect(graph, {
     seeds: new Set(fittedSeeds.keys()),
     ranks,
     budget,
+    communities,
+    communityBoost,
   });
 
   // Group selected nodes by file and collapse to line ranges.
-  type Acc = { ranges: FileRange[]; score: number; tokens: number; reasons: string[] };
+  type Acc = {
+    ranges: FileRange[];
+    score: number;
+    tokens: number;
+    reasons: string[];
+    communities: Set<number>;
+  };
   const byFile = new Map<string, Acc>();
   for (const entry of selection.entries) {
     const data = graph.getNode(entry.id);
     if (!data) continue;
     const file = data.file;
-    const acc = byFile.get(file) ?? { ranges: [], score: 0, tokens: 0, reasons: [] };
+    const acc = byFile.get(file) ?? {
+      ranges: [],
+      score: 0,
+      tokens: 0,
+      reasons: [],
+      communities: new Set<number>(),
+    };
     if (data.startLine && data.endLine) {
       acc.ranges.push({ start: data.startLine, end: data.endLine });
     }
     acc.score += entry.rank;
     acc.tokens += entry.tokens;
     acc.reasons.push(entry.reason);
+    if (entry.community !== undefined) acc.communities.add(entry.community);
     byFile.set(file, acc);
   }
 
@@ -139,6 +167,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
       score: acc.score,
       tokens: acc.tokens,
       reasons: dedupe(acc.reasons),
+      communities: acc.communities.size > 0 ? [...acc.communities].sort((a, b) => a - b) : undefined,
     });
   }
   files.sort((a, b) => b.score - a.score);
@@ -212,6 +241,18 @@ function buildExplain(
   lines.push(`seeded ${seeds.size} symbol${seeds.size === 1 ? '' : 's'}:`);
   for (const [id, score] of [...seeds].slice(0, 5)) {
     lines.push(`  · ${id}  (seed-score ${score.toFixed(3)})`);
+  }
+  // Show distinct community labels touched by the selection (if any).
+  const communitySet = new Set<number>();
+  for (const f of files) {
+    for (const c of f.communities ?? []) communitySet.add(c);
+  }
+  if (communitySet.size > 0) {
+    lines.push(
+      `touched ${communitySet.size} community${communitySet.size === 1 ? '' : 'ies'}: ${[...communitySet]
+        .sort((a, b) => a - b)
+        .join(', ')}`,
+    );
   }
   lines.push(
     `selected ${selection.selected.size} symbols across ${files.length} files` +

@@ -18,6 +18,15 @@ export interface SelectOptions {
    * even at the cost of some rank.
    */
   attachmentWeight?: number;
+  /**
+   * Optional Louvain community labels per node.  When provided AND
+   * `communityBoost > 0`, candidates sharing a community with any seed get
+   * a multiplicative boost in the greedy objective — surface results stay
+   * inside the task's natural module instead of drifting outside.
+   */
+  communities?: ReadonlyMap<string, number>;
+  /** Multiplicative boost for same-community candidates.  Default 0 (off). */
+  communityBoost?: number;
 }
 
 export interface SelectionEntry {
@@ -25,6 +34,8 @@ export interface SelectionEntry {
   tokens: number;
   rank: number;
   reason: string;
+  /** Louvain community label, present only when communities were supplied. */
+  community?: number;
 }
 
 export interface SelectionResult {
@@ -67,7 +78,19 @@ export function greedySelect(graph: SymbolGraph, options: SelectOptions): Select
     budget,
     rankWeight = 1,
     attachmentWeight = 1,
+    communities,
+    communityBoost = 0,
   } = options;
+
+  // Pre-compute the set of community ids the seeds occupy — candidate gets
+  // the boost iff its community is in this set.
+  const seedCommunities = new Set<number>();
+  if (communities && communityBoost > 0) {
+    for (const id of seeds) {
+      const c = communities.get(id);
+      if (c !== undefined) seedCommunities.add(c);
+    }
+  }
 
   const selected = new Set<string>();
   const entries: SelectionEntry[] = [];
@@ -91,6 +114,7 @@ export function greedySelect(graph: SymbolGraph, options: SelectOptions): Select
       tokens: data.tokens,
       rank: ranks.get(id) ?? 0,
       reason: 'seed — matched directly by task',
+      community: communities?.get(id),
     });
   }
 
@@ -120,7 +144,17 @@ export function greedySelect(graph: SymbolGraph, options: SelectOptions): Select
       if (attach === 0) continue;
 
       const rank = ranks.get(id) ?? 0;
-      const score = (rankWeight * rank * attach * attachmentWeight) / Math.max(data.tokens, 1);
+      let score = (rankWeight * rank * attach * attachmentWeight) / Math.max(data.tokens, 1);
+
+      // Multiplicative community boost: candidates inside any seed's community
+      // win ties.  Caps at 2x by design so a wildly relevant outsider can
+      // still beat a same-community filler.
+      if (communities && communityBoost > 0) {
+        const c = communities.get(id);
+        if (c !== undefined && seedCommunities.has(c)) {
+          score *= 1 + communityBoost;
+        }
+      }
 
       if (!best || score > best.score) {
         best = { id, score, tokens: data.tokens, rank, attach };
@@ -135,6 +169,7 @@ export function greedySelect(graph: SymbolGraph, options: SelectOptions): Select
       tokens: best.tokens,
       rank: best.rank,
       reason: reasonFor(best.attach, best.rank),
+      community: communities?.get(best.id),
     });
   }
 
