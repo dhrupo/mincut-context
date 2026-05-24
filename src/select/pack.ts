@@ -1,6 +1,6 @@
 import { detectCommunities, greedySelect, personalizedPageRank } from '../core/index.js';
 import type { SymbolGraph } from '../core/index.js';
-import { indexRepo } from '../index/builder.js';
+import { indexRepo, indexRepoAsync } from '../index/builder.js';
 import type { WalkOptions } from '../index/walker.js';
 import { scoreSeeds } from '../seeds/keyword.js';
 import { scoreSeedsHybrid, type Embedder } from '../seeds/embedding.js';
@@ -38,6 +38,8 @@ export interface PackOptions {
   communityBoost?: number;
   /** Include `trace` field in PackResult with algorithm internals. Default false. */
   verbose?: boolean;
+  /** Worker count for parallel parsing. 0 (default) = sequential. */
+  parallel?: number;
 }
 
 export interface FileRange {
@@ -92,12 +94,16 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     cacheDir,
     communityBoost = 0.5,
     verbose = false,
+    parallel = 0,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
   const t0 = Date.now();
   const walkOpts: WalkOptions = { include, exclude };
-  const { graph, stats } = indexRepo(repo, { ...walkOpts, cache, cacheDir });
+  const { graph, stats } =
+    parallel > 0
+      ? await indexRepoAsync(repo, { ...walkOpts, cache, cacheDir, parallel })
+      : indexRepo(repo, { ...walkOpts, cache, cacheDir });
   const indexMs = Date.now() - t0;
 
   if (graph.order() === 0) {

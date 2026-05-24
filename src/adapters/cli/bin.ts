@@ -57,6 +57,7 @@ program
   .option('--cache-dir <path>', 'Override cache directory (absolute path)')
   .option('--community-boost <number>', 'Louvain same-community boost factor (0 = disabled)', (v) => Number(v), 0.5)
   .option('-v, --verbose', 'Print algorithm trace (seeds, ranks, selection order, timings)', false)
+  .option('-j, --parallel <n>', 'Use n parallel parser workers (0 = sequential, default 0)', (v) => Number(v), 0)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -85,6 +86,7 @@ program
         cacheDir: opts.cacheDir,
         communityBoost: opts.communityBoost,
         verbose: opts.verbose,
+        parallel: opts.parallel,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();

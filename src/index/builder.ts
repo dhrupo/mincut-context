@@ -7,6 +7,7 @@ import { parseVueSfc } from '../parsers/vue.js';
 import type { ParseResult, ParsedImport, ParsedSymbol } from '../parsers/parser.js';
 import { walk, type WalkOptions } from './walker.js';
 import { ParseCache, fileFingerprint } from './cache.js';
+import { ParsePool } from './worker-pool.js';
 
 const TS_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const PY_EXT = new Set(['.py', '.pyi']);
@@ -27,6 +28,12 @@ export interface IndexOptions extends WalkOptions {
   cache?: boolean;
   /** Override cache directory.  Default `<repo>/.mincut-cache/`. */
   cacheDir?: string;
+  /**
+   * Worker count for parallel parsing.  0 (default) = synchronous in-process.
+   * Use os.cpus().length - 1 (capped at 8) as a reasonable upper bound.
+   * Only honored by `indexRepoAsync()`.
+   */
+  parallel?: number;
 }
 
 export interface IndexResult {
@@ -38,6 +45,155 @@ export interface IndexResult {
     unresolvedCalls: number;
     cacheHits: number;
     cacheMisses: number;
+  };
+}
+
+/**
+ * Async parallel-capable indexer.  When `options.parallel > 0`, parses files
+ * in a worker_threads pool.  Otherwise falls back to the synchronous path.
+ *
+ * The same graph is built regardless of mode — only the parse step differs.
+ */
+export async function indexRepoAsync(
+  root: string,
+  options: IndexOptions = {},
+): Promise<IndexResult> {
+  const parallel = options.parallel ?? 0;
+  if (parallel <= 0) return indexRepo(root, options);
+
+  const graph = new SymbolGraph();
+  const cache = options.cache
+    ? new ParseCache(options.cacheDir ?? path.join(root, '.mincut-cache'))
+    : null;
+
+  const fileImports = new Map<string, ParsedImport[]>();
+  const symbolsByFile = new Map<string, ParsedSymbol[]>();
+  const symbolByName = new Map<string, string[]>();
+  const pendingCalls: { from: string; toName: string; file: string }[] = [];
+
+  let fileCount = 0;
+  let unresolved = 0;
+
+  // Phase 1: collect files (cache hits handled here so workers don't waste effort).
+  type Job = { relPath: string; absPath: string; source: string };
+  const jobs: Job[] = [];
+  const cachedResults: Array<{ relPath: string; result: ParseResult }> = [];
+
+  for (const file of walk(root, options)) {
+    if (cache) {
+      const fp = fileFingerprint(file.absPath);
+      if (fp) {
+        const hit = cache.get(file.relPath, fp.mtimeMs, fp.size);
+        if (hit) {
+          cachedResults.push({ relPath: file.relPath, result: hit });
+          continue;
+        }
+      }
+    }
+    jobs.push({ relPath: file.relPath, absPath: file.absPath, source: file.source });
+  }
+
+  // Phase 2: parse cache-miss jobs in parallel.
+  const pool = new ParsePool(parallel);
+  let parsedResults: Array<{ relPath: string; absPath: string; result: ParseResult | null }> = [];
+  try {
+    parsedResults = await Promise.all(
+      jobs.map(async (j) => ({
+        relPath: j.relPath,
+        absPath: j.absPath,
+        result: await pool.parse(j.relPath, j.source),
+      })),
+    );
+  } finally {
+    await pool.close();
+  }
+
+  // Phase 3: write cache entries (must be sequential — JSON file writes).
+  if (cache) {
+    for (const r of parsedResults) {
+      if (!r.result) continue;
+      const fp = fileFingerprint(r.absPath);
+      if (fp) cache.put(r.relPath, fp.mtimeMs, fp.size, r.result);
+    }
+  }
+
+  // Phase 4: build graph from union of cached + parsed results.
+  for (const cr of cachedResults) ingest(cr.relPath, cr.result);
+  for (const pr of parsedResults) {
+    if (pr.result) ingest(pr.relPath, pr.result);
+  }
+
+  function ingest(relPath: string, parsed: ParseResult): void {
+    fileCount += 1;
+    fileImports.set(relPath, parsed.imports);
+    symbolsByFile.set(relPath, parsed.symbols);
+    for (const sym of parsed.symbols) {
+      if (graph.hasNode(sym.id)) continue;
+      graph.addNode(sym.id, {
+        tokens: sym.tokens,
+        file: sym.file,
+        kind: sym.kind,
+        name: sym.name,
+        startLine: sym.startLine,
+        endLine: sym.endLine,
+      });
+      const arr = symbolByName.get(sym.name) ?? [];
+      arr.push(sym.id);
+      symbolByName.set(sym.name, arr);
+    }
+    for (const call of parsed.calls) {
+      pendingCalls.push({ from: call.from, toName: call.toName, file: relPath });
+    }
+  }
+
+  // Phase 5: cross-file resolution + edges.  Same as the sync path.
+  const knownFiles = new Set<string>(symbolsByFile.keys());
+  const resolve = (file: string, spec: string): string | null =>
+    resolveImportPath(file, spec, knownFiles);
+
+  for (const call of pendingCalls) {
+    const target = resolveCall(call.from, call.toName, call.file, fileImports, symbolsByFile, symbolByName, resolve);
+    if (!target) {
+      unresolved += 1;
+      continue;
+    }
+    if (!graph.hasNode(call.from) || !graph.hasNode(target)) continue;
+    if (call.from === target) continue;
+    graph.addEdge(call.from, target, { weight: 1, kind: 'call' });
+  }
+
+  for (const [file, imports] of fileImports) {
+    const callers = (symbolsByFile.get(file) ?? []).map((s) => s.id);
+    if (callers.length === 0) continue;
+    for (const imp of imports) {
+      const resolvedFile = resolve(file, imp.source);
+      if (!resolvedFile) continue;
+      const targets = symbolsByFile.get(resolvedFile);
+      if (!targets) continue;
+      for (const name of imp.names) {
+        const targetSym = targets.find((s) => s.name === name);
+        if (!targetSym) continue;
+        for (const caller of callers) {
+          if (caller === targetSym.id) continue;
+          if (!graph.hasNode(caller) || !graph.hasNode(targetSym.id)) continue;
+          if (graph.hasEdge(caller, targetSym.id)) continue;
+          graph.addEdge(caller, targetSym.id, { weight: 0.5, kind: 'import' });
+        }
+      }
+    }
+  }
+
+  const cacheStats = cache?.getStats() ?? { hits: 0, misses: 0 };
+  return {
+    graph,
+    stats: {
+      files: fileCount,
+      symbols: graph.order(),
+      edges: graph.size(),
+      unresolvedCalls: unresolved,
+      cacheHits: cacheStats.hits,
+      cacheMisses: cacheStats.misses,
+    },
   };
 }
 
