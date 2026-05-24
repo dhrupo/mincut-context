@@ -4,6 +4,7 @@ import { parseTypeScript } from '../parsers/ts.js';
 import { parsePython } from '../parsers/py.js';
 import type { ParseResult, ParsedImport, ParsedSymbol } from '../parsers/parser.js';
 import { walk, type WalkOptions } from './walker.js';
+import { ParseCache, fileFingerprint } from './cache.js';
 
 const TS_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const PY_EXT = new Set(['.py', '.pyi']);
@@ -15,6 +16,13 @@ function parseForExt(file: string, source: string): ParseResult | null {
   return null;
 }
 
+export interface IndexOptions extends WalkOptions {
+  /** Enable persistent on-disk parse cache.  Default false (in-memory only). */
+  cache?: boolean;
+  /** Override cache directory.  Default `<repo>/.mincut-cache/`. */
+  cacheDir?: string;
+}
+
 export interface IndexResult {
   graph: SymbolGraph;
   stats: {
@@ -22,11 +30,16 @@ export interface IndexResult {
     symbols: number;
     edges: number;
     unresolvedCalls: number;
+    cacheHits: number;
+    cacheMisses: number;
   };
 }
 
-export function indexRepo(root: string, options: WalkOptions = {}): IndexResult {
+export function indexRepo(root: string, options: IndexOptions = {}): IndexResult {
   const graph = new SymbolGraph();
+  const cache = options.cache
+    ? new ParseCache(options.cacheDir ?? path.join(root, '.mincut-cache'))
+    : null;
 
   // Per-file accumulators we need for cross-file resolution.
   const fileImports = new Map<string, ParsedImport[]>();
@@ -38,7 +51,21 @@ export function indexRepo(root: string, options: WalkOptions = {}): IndexResult 
   let unresolved = 0;
 
   for (const file of walk(root, options)) {
-    const parsed = parseForExt(file.relPath, file.source);
+    let parsed: ParseResult | null = null;
+    if (cache) {
+      const fp = fileFingerprint(file.absPath);
+      if (fp) {
+        const hit = cache.get(file.relPath, fp.mtimeMs, fp.size);
+        if (hit) {
+          parsed = hit;
+        } else {
+          parsed = parseForExt(file.relPath, file.source);
+          if (parsed) cache.put(file.relPath, fp.mtimeMs, fp.size, parsed);
+        }
+      }
+    } else {
+      parsed = parseForExt(file.relPath, file.source);
+    }
     if (!parsed) continue;
 
     fileCount += 1;
@@ -104,6 +131,8 @@ export function indexRepo(root: string, options: WalkOptions = {}): IndexResult 
     }
   }
 
+  const cacheStats = cache?.getStats() ?? { hits: 0, misses: 0 };
+
   return {
     graph,
     stats: {
@@ -111,6 +140,8 @@ export function indexRepo(root: string, options: WalkOptions = {}): IndexResult 
       symbols: graph.order(),
       edges: graph.size(),
       unresolvedCalls: unresolved,
+      cacheHits: cacheStats.hits,
+      cacheMisses: cacheStats.misses,
     },
   };
 }

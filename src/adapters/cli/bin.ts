@@ -53,6 +53,8 @@ program
   .option('--embed-weight <number>', 'Blend factor 0..1 (0=keyword, 1=embedding only)', (v) => Number(v), 0.5)
   .option('--embed-model <id>', 'Hugging Face model id', 'Xenova/all-MiniLM-L6-v2')
   .option('-i, --interactive', 'Interactive review — pin/exclude in a TUI before output', false)
+  .option('--cache', 'Use persistent parse cache at .mincut-cache/ (fast repeat runs)', false)
+  .option('--cache-dir <path>', 'Override cache directory (absolute path)')
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -77,6 +79,8 @@ program
         exclude: opts.exclude,
         embedder,
         embedWeight: opts.embedWeight,
+        cache: opts.cache,
+        cacheDir: opts.cacheDir,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();
@@ -102,18 +106,25 @@ program
 
 program
   .command('index')
-  .description('Index the repo and print stats (warms the parse cache, if any)')
+  .description('Index the repo and print stats (optionally warm the on-disk parse cache)')
   .option('-r, --repo <path>', 'Repository root', process.cwd())
   .option('--include <pattern...>', 'Restrict to glob patterns')
+  .option('--cache', 'Use persistent parse cache at .mincut-cache/', false)
+  .option('--cache-dir <path>', 'Override cache directory (absolute path)')
   .action((opts) => {
     const t0 = Date.now();
     const { stats } = indexRepo(path.resolve(opts.repo), {
       include: opts.include,
+      cache: opts.cache,
+      cacheDir: opts.cacheDir,
     });
     const elapsed = Date.now() - t0;
+    const cacheNote = opts.cache
+      ? ` · cache: ${stats.cacheHits} hit / ${stats.cacheMisses} miss`
+      : '';
     process.stdout.write(
       `indexed ${stats.files} files · ${stats.symbols} symbols · ${stats.edges} edges ` +
-        `(${stats.unresolvedCalls} unresolved calls) in ${elapsed} ms\n`,
+        `(${stats.unresolvedCalls} unresolved calls)${cacheNote} in ${elapsed} ms\n`,
     );
   });
 

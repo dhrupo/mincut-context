@@ -27,6 +27,10 @@ export interface PackOptions {
    * Honored only when `embedder` is provided.  Default 0.5.
    */
   embedWeight?: number;
+  /** Enable persistent on-disk parse cache. Default false. */
+  cache?: boolean;
+  /** Override cache directory. */
+  cacheDir?: string;
 }
 
 export interface FileRange {
@@ -65,11 +69,13 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     exclude,
     embedder,
     embedWeight = 0.5,
+    cache,
+    cacheDir,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
   const walkOpts: WalkOptions = { include, exclude };
-  const { graph, stats } = indexRepo(repo, walkOpts);
+  const { graph, stats } = indexRepo(repo, { ...walkOpts, cache, cacheDir });
 
   if (graph.order() === 0) {
     return emptyResult('No supported source files found.', stats.symbols);

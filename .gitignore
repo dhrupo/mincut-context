@@ -6,6 +6,7 @@ coverage/
 .env
 .env.local
 .mincut-cache/
+**/.mincut-cache/
 .vscode/
 .idea/
 *.tsbuildinfo
