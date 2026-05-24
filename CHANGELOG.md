@@ -3,6 +3,31 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.4.0 — 2026-05-24
+
+### Added
+
+- **Sub-symbol chunking now works for Python and PHP** (was TS/JS/Vue only
+  in v1.3). The chunking algorithm was extracted into
+  `src/parsers/chunking.ts` so all parsers share one implementation.
+- **LSP-backed call resolution.** Optional refinement of call edges via the
+  Language Server Protocol — currently `typescript-language-server`. When
+  enabled, ambiguous syntactic name matches get upgraded to type-resolved
+  edges where the LSP has a definite answer.
+  - Library: `pack({ lspClient: createTypeScriptLsp() })`
+  - CLI: `mcx pack '...' --lsp` (requires `typescript-language-server` on PATH)
+  - Falls back to syntactic resolution if the binary or initialize fails.
+
+### Internals
+
+- New module `src/lsp/` with: `types`, `stdio-client` (JSON-RPC over stdio),
+  `typescript` adapter, `resolver`.
+- `ParsedCall` now carries optional `(line, character)` for the callee identifier.
+- `IndexResult.callSites[]` exposes positional call info for downstream
+  refinement.
+
+### Tests: 217 across 33 files (+19 net)
+
 ## 1.3.0 — 2026-05-24
 
 A "developer experience" release — seven user-visible features land.

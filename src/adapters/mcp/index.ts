@@ -12,7 +12,7 @@ import { handleMcpCall, TOOLS } from './handler.js';
  */
 export async function runMcpServer(): Promise<void> {
   const server = new Server(
-    { name: 'mincut-context', version: '1.3.0' },
+    { name: 'mincut-context', version: '1.4.0' },
     { capabilities: { tools: {} } },
   );
 

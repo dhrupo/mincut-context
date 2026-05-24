@@ -12,7 +12,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
-[![tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)](./tests)
+[![tests](https://img.shields.io/badge/tests-217%20passing-brightgreen)](./tests)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
@@ -94,18 +94,28 @@ npx mincut-context pack "your task" --budget 4000
 
 Requires **Node ≥ 18.17**. TypeScript types ship with the package.
 
+Optional peer dependencies:
+
+| When you want | Install |
+|---|---|
+| `--lsp` type-aware call resolution | `npm i -g typescript-language-server` |
+| `--embed` semantic seeding | (auto — `@xenova/transformers` ships in the package) |
+
 ## Quick start
 
 ```bash
 # 1. Index any repo once (warms the cache)
-mcx index .
+mcx index . --cache
 
 # 2. Ask for context for a task
-mcx pack "fix the login validation bug" --budget 4000
+mcx pack "fix the login validation bug" --budget 4000 --cache
 
 # 3. Pipe straight into your agent
 mcx pack "..." --format markdown > context.md
 mcx pack "..." --format json | jq '.files[].path'
+
+# 4. Stay-running mode during dev
+mcx watch "fix the login bug" --budget 4000 --cache
 ```
 
 ---
@@ -131,7 +141,7 @@ Your agent now has three tools:
 
 | Tool | Description |
 |---|---|
-| `pack_context(task, repo, budget?)` | Get a token-minimal, structurally-relevant context window |
+| `pack_context(task, repo, budget?, cache?, cacheDir?, communityBoost?)` | Get a token-minimal, structurally-relevant context window |
 | `expand_node(node, depth?)` | Pull more around a specific symbol |
 | `explain_selection()` | The rationale for the last selection |
 
@@ -139,11 +149,18 @@ Your agent now has three tools:
 
 ```bash
 mcx pack "your task description" --budget 4000             # plain output
+mcx pack "..." --format tree                               # directory-grouped tree
 mcx pack "..." --format json | jq                          # pipe-friendly
 mcx pack "..." --format markdown > context.md              # ready-to-paste
-mcx pack "..." --interactive                               # Ink TUI to pin / exclude
+mcx pack "..." --interactive                               # Ink TUI (vim keys + preview)
 mcx pack "..." --embed                                     # semantic seeding
-mcx index .                                                # warm the parse
+mcx pack "..." --cache                                     # persistent parse cache (5× speedup)
+mcx pack "..." --parallel 4                                # worker-thread parser pool
+mcx pack "..." --chunk                                     # split huge functions into sub-symbols
+mcx pack "..." --lsp                                       # type-aware call resolution (TS)
+mcx pack "..." --verbose                                   # algorithm trace
+mcx watch "..." --debounce 300                             # re-pack on file change
+mcx index . --cache                                        # warm the parse cache
 mcx mcp                                                    # run as MCP server
 ```
 
@@ -156,6 +173,10 @@ const result = await pack({
   task: 'fix the login validation bug',
   repo: process.cwd(),
   budget: 4000,
+  cache: true,            // persistent parse cache
+  communityBoost: 0.5,    // Louvain intra-cluster bias
+  parallel: 4,            // worker-thread parsing
+  chunk: { enabled: true, maxTokens: 400 },  // sub-symbol chunking
 });
 
 for (const f of result.files) {
@@ -165,7 +186,7 @@ for (const f of result.files) {
 // → src/auth/session.ts      0.408  483 · attached (60%)
 ```
 
-Full TypeScript types — `pack`, `indexRepo`, `SymbolGraph`, `personalizedPageRank`, `greedySelect` are all exported.
+Full TypeScript types — `pack`, `indexRepo`, `indexRepoAsync`, `SymbolGraph`, `personalizedPageRank`, `greedySelect`, `detectCommunities` are all exported.
 
 ---
 
@@ -173,12 +194,14 @@ Full TypeScript types — `pack`, `indexRepo`, `SymbolGraph`, `personalizedPageR
 
 ```mermaid
 flowchart LR
-    A[Repo files] -->|tree-sitter| B[Symbol graph<br/>V: functions/classes<br/>E: imports/calls]
+    A[Repo files] -->|tree-sitter| B[Symbol graph<br/>V: functions/classes/chunks<br/>E: imports/calls]
     T[Task string] -->|keyword IDF| S[Seeds S ⊆ V]
     T -->|optional: --embed| S
     B --> R[Personalized<br/>PageRank<br/>α=0.85]
     S --> R
+    B --> L[Louvain<br/>communities]
     R --> C[Greedy<br/>budget min-cut<br/>1−1/e bound]
+    L --> C
     B --> C
     C --> P[Packed context<br/>files + ranges<br/>+ per-node reason]
 ```
@@ -188,16 +211,19 @@ The five steps in pseudocode:
 ```text
 pack(task, repo, budget):
   1. graph  = index(repo)                       # tree-sitter → symbol+edge graph
+                                                # optionally chunked into sub-symbols
+                                                # optionally refined by LSP
   2. seeds  = scoreSeeds(task, graph)           # keyword IDF (+ embeddings if --embed)
   3. ranks  = personalizedPageRank(graph, seeds, α=0.85)
-  4. T      = greedyMinCut(graph, ranks, seeds, budget):
+  4. comm   = louvainCommunities(graph)         # for intra-cluster boost
+  5. T      = greedyMinCut(graph, ranks, seeds, budget, comm):
        T ← seeds
        while Σ tokens(T) < B:
          v* ← argmax_{v ∉ T, attach(v,T) > 0}
-                 rank(v) · attach(v,T) / tokens(v)
+                 rank(v) · attach(v,T) · communityBonus(v) / tokens(v)
          T ← T ∪ {v*}
-  5. ranges = collapseToFileRanges(T)
-  6. return { files: ranges, tokens, graph: {...}, explain }
+  6. ranges = collapseToFileRanges(T)
+  7. return { files: ranges, tokens, graph: {...}, explain, trace? }
 ```
 
 The "no isolated nodes" rule (`attach(v, T) > 0`) is what gives you the *cohesion guarantee* — adding a fully-detached node would strictly increase the cut without benefit, so the greedy refuses. That's why an "auth" task never drags in unrelated UI files even when budget permits.
@@ -219,6 +245,17 @@ $ mcx pack "ranking and centrality algorithm" --repo . --embed --embed-weight 0.
 "Centrality" never appears in any symbol name — only embeddings could find this.
 Uses [`@xenova/transformers`](https://github.com/xenova/transformers.js) (Transformers.js + ONNX). Fully local, ~22 MB model download on first use.
 
+### LSP-backed call resolution (optional)
+
+Syntactic name matching can be ambiguous when two files export functions with the same name. `--lsp` asks `typescript-language-server` for the authoritative answer and adds higher-weight edges where it disagrees:
+
+```bash
+npm i -g typescript-language-server     # one-time
+mcx pack "your task" --repo . --lsp
+```
+
+If the LSP fails or the binary is missing, mincut falls back silently to syntactic edges.
+
 ---
 
 ## Real-world examples
@@ -235,7 +272,19 @@ $ mcx pack "analytics visit tracking" --budget 3000 --exclude tests/**
 selected 20 / 845 symbols (2.4% of codebase)
 ```
 
-That's exactly the analytics slice — no UI noise, no test fixtures, no unrelated modules. An agent given this context can reason about analytics changes without the rest of the repo.
+**On the [Fluent Forms](https://fluentforms.com) plugin** (809 files of mixed PHP + Vue + JS, 4,333 symbols, 3,776 edges):
+
+```bash
+$ mcx pack "payment stripe processor" --budget 3000 --cache --community-boost 0.8
+→ app/Modules/Payments/PaymentMethods/Stripe/StripeProcessor.php       1955 tok  ← seed
+→ app/Modules/Payments/PaymentMethods/Stripe/StripeHandler.php         246 tok
+→ app/Modules/Payments/AjaxEndpoints.php                               152 tok
+→ app/Modules/Payments/PaymentMethods/Stripe/API/RequestProcessor.php  159 tok
+→ app/Modules/Payments/PaymentMethods/Stripe/API/Plan.php              331 tok
+→ app/Modules/Payments/PaymentMethods/Stripe/API/ApiRequest.php         26 tok
+```
+
+That's exactly the Stripe cluster — no UI noise, no test fixtures, no unrelated modules.
 
 ---
 
@@ -245,9 +294,13 @@ That's exactly the analytics slice — no UI noise, no test fixtures, no unrelat
 |---|---|---|
 | TypeScript / JavaScript | ✅ v1.0 | `.ts .tsx .js .jsx .mjs .cjs` |
 | Python | ✅ v1.0 | `.py .pyi`, relative imports, decorators, methods |
-| **PHP** | ✅ **v1.2** | `.php`, namespaces, traits, `use` (incl. grouped + aliased), `$this->`, `Foo::bar()` |
-| **Vue SFC** | ✅ **v1.2** | `.vue`, `<script>` Options API + `<script setup>` Composition API, `lang="ts"` honored |
+| PHP | ✅ v1.2 | `.php`, namespaces, traits, `use` (incl. grouped + aliased), `$this->`, `Foo::bar()` |
+| Vue SFC | ✅ v1.2 | `.vue`, `<script>` Options API + `<script setup>` Composition API, `lang="ts"` honored |
 | Rust, Go, Svelte, … | community welcome | tree-sitter grammar + symbol queries |
+
+**Sub-symbol chunking** is supported on all 4 languages above as of v1.4 (was TS/JS/Vue only in v1.3).
+
+**LSP-backed call resolution** currently covers TypeScript / JavaScript / Vue via `typescript-language-server`. Adding Python (pyright) or PHP (intelephense) is a small adapter.
 
 Adding a language is one parser file implementing `LanguageParser` + one line in `parseForExt`. See [`src/parsers/py.ts`](./src/parsers/py.ts) as a template.
 
@@ -268,30 +321,28 @@ Options:
       --alpha <number>            PageRank damping (default: 0.85)
       --include <pattern...>      Restrict to glob patterns (e.g. src/auth/**)
       --exclude <pattern...>      Extra ignore patterns appended to .gitignore
-  -f, --format <fmt>              plain | json | markdown
+  -f, --format <fmt>              plain | tree | json | markdown
       --no-color                  Disable colored output
       --embed                     Use semantic embeddings (~22 MB model first run)
       --embed-weight <number>     Blend 0..1 (0=keyword, 1=embedding only)
       --embed-model <id>          HF model id (default Xenova/all-MiniLM-L6-v2)
-  -i, --interactive               Ink TUI for pin/exclude before output
+  -i, --interactive               Ink TUI for pin/exclude with preview pane + vim keys
       --cache                     Use persistent parse cache (.mincut-cache/) — fast repeat runs
       --cache-dir <path>          Override cache directory (absolute path)
       --community-boost <number>  Louvain same-community boost (default 0.5, 0 = disabled)
   -v, --verbose                   Print algorithm trace (seeds, ranks, selection, timings)
   -j, --parallel <n>              Use n worker threads to parse in parallel (default 0)
-      --chunk                     Split large functions into sub-symbol chunks (TS/JS/Vue)
+      --chunk                     Split large functions into sub-symbol chunks (TS/JS/Vue/Py/PHP)
       --chunk-tokens <n>          Token threshold for chunking (default 400)
-
-mcx watch '<task>' --repo . --budget 4000 [--debounce 300] [--cache] [--parallel n]
-  Long-running mode that re-packs the context on any source file change.
+      --lsp                       Refine call edges via typescript-language-server
 ```
 
 Other commands:
 
 ```text
-mcx index [path]   warm the parse cache (no output beyond stats)
-mcx mcp            run as an MCP server over stdio
-mcx --version      print the installed version
+mcx watch '<task>' --repo . --budget 4000 [--debounce 300] [--cache] [--parallel n]
+mcx index [path] [--cache] [--include glob]
+mcx mcp                                                # run as MCP server over stdio
 ```
 
 </details>
@@ -300,13 +351,13 @@ mcx --version      print the installed version
 
 ## How it compares
 
-| Approach | Token-aware | Structural | Semantic | Explainable |
-|---|---|---|---|---|
-| **Whole file dump** (`cat`, `Read`) | ❌ | ❌ | ❌ | trivially |
-| **Grep / ripgrep** | ❌ | ❌ | ❌ | yes |
-| **Cursor/Continue RAG** | partial | ❌ | ✅ | hard |
-| **AST/symbol graph alone** | ❌ | ✅ | ❌ | yes |
-| **`mincut-context`** | ✅ (budget) | ✅ (graph) | ✅ (`--embed`) | per-node `reason` |
+| Approach | Token-aware | Structural | Semantic | Type-aware | Explainable |
+|---|---|---|---|---|---|
+| **Whole file dump** (`cat`, `Read`) | ❌ | ❌ | ❌ | ❌ | trivially |
+| **Grep / ripgrep** | ❌ | ❌ | ❌ | ❌ | yes |
+| **Cursor/Continue RAG** | partial | ❌ | ✅ | ❌ | hard |
+| **AST/symbol graph alone** | ❌ | ✅ | ❌ | ❌ | yes |
+| **`mincut-context`** | ✅ (budget) | ✅ (graph) | ✅ (`--embed`) | ✅ (`--lsp`) | per-node `reason` |
 
 ---
 
@@ -319,19 +370,20 @@ mcx --version      print the installed version
 - [x] MCP server **(v1.0)**
 - [x] Local embeddings (`@xenova/transformers`) **(v1.0)**
 - [x] Ink TUI **(v1.0)**
-- [x] Persistent on-disk parse cache (incremental reindex) **(v1.1)** — 5.2× warm-run speedup
+- [x] Persistent on-disk parse cache **(v1.1)** — 5.2× warm-run speedup
 - [x] Louvain community boost **(v1.1)**
-- [x] **PHP parser** **(v1.2)**
-- [x] **Vue SFC parser** **(v1.2)**
-- [x] **Parallel parsing (worker pool)** **(v1.3)** — 2.7× cold-index speedup
-- [x] **Sub-symbol AST-block chunking (TS/JS/Vue)** **(v1.3)**
-- [x] **`mcx watch` long-running mode** **(v1.3)**
-- [x] **TUI v2: preview pane + vim keys + fuzzy filter** **(v1.3)**
-- [x] **`--verbose` algorithm trace** **(v1.3)**
-- [x] **`--format tree` directory-grouped output** **(v1.3)**
-- [ ] Sub-symbol chunking for Python and PHP
+- [x] PHP parser **(v1.2)**
+- [x] Vue SFC parser **(v1.2)**
+- [x] Parallel parsing (worker pool) **(v1.3)** — 2.7× cold-index speedup
+- [x] Sub-symbol AST-block chunking (TS/JS/Vue) **(v1.3)**
+- [x] `mcx watch` long-running mode **(v1.3)**
+- [x] TUI v2: preview pane + vim keys + fuzzy filter **(v1.3)**
+- [x] `--verbose` algorithm trace **(v1.3)**
+- [x] `--format tree` directory-grouped output **(v1.3)**
+- [x] Sub-symbol chunking for Python + PHP **(v1.4)**
+- [x] LSP-backed type-aware call resolution **(v1.4)** — typescript-language-server
+- [ ] Pyright / Intelephense LSP adapters
 - [ ] Svelte / Rust / Go parsers
-- [ ] LSP-backed type-aware call resolution
 
 ---
 
@@ -341,10 +393,11 @@ mcx --version      print the installed version
 | What's not optimal | What we do |
 |---|---|
 | True optimal min-cut is NP-hard | Greedy submodular — `(1−1/e)` bound |
-| Tree-sitter symbols are syntactic, not type-aware | Don't follow generics or dynamic dispatch — good for context, not refactoring |
+| Tree-sitter symbols are syntactic, not type-aware | `--lsp` refines TS/JS via typescript-language-server |
 | Embedding model adds ~22 MB on first run | Opt-in behind `--embed` flag |
-| Cold start parses whole repo | `.mincut-cache/` per-file cache planned for v1.1 |
-| Python class-level constants aren't symbols yet | Only `def` and `class` for now |
+| LSP startup is slow (~1-5s) | Opt-in behind `--lsp` flag; cached after init |
+| Cold start parses whole repo | `--cache` (5× speedup) + `--parallel n` (2.7× speedup) |
+| Cross-file call resolution is heuristic | LSP-refined where the binary is available |
 
 </details>
 
@@ -355,8 +408,8 @@ mcx --version      print the installed version
 ```bash
 git clone https://github.com/dhrupo/mincut-context.git
 cd mincut-context
-npm install
-npm test           # 116 tests across unit + integration + MCP + CLI + TUI
+npm install --legacy-peer-deps
+npm test           # 217 tests across unit + integration + MCP + CLI + TUI + LSP
 npm run build
 node dist/adapters/cli/bin.js pack "..." --repo /path/to/some-repo
 ```
@@ -364,18 +417,19 @@ node dist/adapters/cli/bin.js pack "..." --repo /path/to/some-repo
 PRs especially welcome for:
 
 - **New language parsers** — tree-sitter grammar + symbol queries
-- **LSP integration** — type-aware call resolution
-- **Cache layer** — persistent `.mincut-cache/`
+- **New LSP adapters** — pyright (Python), intelephense (PHP), gopls (Go), rust-analyzer (Rust)
+- **Sub-symbol chunking for new languages** — straightforward extension since the helper is language-agnostic
 
 Each PR must keep the test suite green (`npm test`). New behavior requires tests first (TDD).
 
 ## Built with
 
 - [`tree-sitter`](https://tree-sitter.github.io/tree-sitter/) — incremental parsing
-- [`graphology`](https://graphology.github.io/) — graph primitives
+- [`graphology`](https://graphology.github.io/) + [`graphology-communities-louvain`](https://github.com/graphology/graphology-communities-louvain) — graph primitives + community detection
 - [`@xenova/transformers`](https://github.com/xenova/transformers.js) — local ONNX embeddings
 - [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) — MCP server
 - [`commander`](https://github.com/tj/commander.js) + [`ink`](https://github.com/vadimdemedes/ink) — CLI & TUI
+- [`chokidar`](https://github.com/paulmillr/chokidar) — file watching
 - [`vitest`](https://vitest.dev/) — testing
 
 ## License
