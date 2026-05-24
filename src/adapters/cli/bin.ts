@@ -65,6 +65,7 @@ program
   .option('-j, --parallel <n>', 'Use n parallel parser workers (0 = sequential, default 0)', (v) => Number(v), 0)
   .option('--chunk', 'Split large functions into sub-symbol chunks (TS/JS/Vue)', false)
   .option('--chunk-tokens <n>', 'Token threshold for chunking', (v) => Number(v), 400)
+  .option('--lsp', 'Refine call edges via typescript-language-server (requires the binary on PATH)', false)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -95,6 +96,9 @@ program
         verbose: opts.verbose,
         parallel: opts.parallel,
         chunk: opts.chunk ? { enabled: true, maxTokens: opts.chunkTokens } : undefined,
+        lspClient: opts.lsp
+          ? (await import('../../lsp/typescript.js')).createTypeScriptLsp()
+          : undefined,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();

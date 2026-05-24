@@ -1,6 +1,8 @@
 import { detectCommunities, greedySelect, personalizedPageRank } from '../core/index.js';
 import type { SymbolGraph } from '../core/index.js';
 import { indexRepo, indexRepoAsync } from '../index/builder.js';
+import type { LspClient } from '../lsp/types.js';
+import { resolveCallsWithLsp, type CallSite } from '../lsp/resolver.js';
 import type { WalkOptions } from '../index/walker.js';
 import { scoreSeeds } from '../seeds/keyword.js';
 import { scoreSeedsHybrid, type Embedder } from '../seeds/embedding.js';
@@ -45,6 +47,13 @@ export interface PackOptions {
    * Pass { enabled: true, maxTokens: 400 } to opt in.
    */
   chunk?: { enabled: boolean; maxTokens: number };
+  /**
+   * Optional LSP client used to refine call edges via textDocument/definition.
+   * When provided, ambiguous syntactic name matches get upgraded to
+   * type-resolved edges where the language server has a definite answer.
+   * If the LSP errors out, the pack silently falls back to syntactic-only.
+   */
+  lspClient?: LspClient;
 }
 
 export interface FileRange {
@@ -68,6 +77,7 @@ export interface PackTrace {
   selectionOrder: Array<{ id: string; reason: string; tokens: number; rank: number }>;
   timings: { indexMs: number; rankMs: number; selectMs: number; totalMs: number };
   cache?: { hits: number; misses: number };
+  lsp?: { resolved: number; added: number };
 }
 
 export interface PackResult {
@@ -101,16 +111,57 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     verbose = false,
     parallel = 0,
     chunk,
+    lspClient,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
   const t0 = Date.now();
   const walkOpts: WalkOptions = { include, exclude };
-  const { graph, stats } =
+  const indexed =
     parallel > 0
       ? await indexRepoAsync(repo, { ...walkOpts, cache, cacheDir, parallel, chunk })
       : indexRepo(repo, { ...walkOpts, cache, cacheDir, chunk });
+  const { graph, stats } = indexed;
   const indexMs = Date.now() - t0;
+
+  // Optional LSP refinement: ask a language server for authoritative
+  // call resolution.  Fully best-effort — on any error we keep the
+  // syntactic edges already in the graph.
+  if (lspClient && indexed.callSites && indexed.callSites.length > 0) {
+    try {
+      await lspClient.initialize(repo);
+      const seenFiles = new Set<string>();
+      for (const cs of indexed.callSites) {
+        if (seenFiles.has(cs.file)) continue;
+        seenFiles.add(cs.file);
+        try {
+          const { readFileSync } = await import('node:fs');
+          const fullPath = `${repo}/${cs.file}`;
+          const source = readFileSync(fullPath, 'utf8');
+          const lang =
+            cs.file.endsWith('.tsx') ? 'typescriptreact'
+            : cs.file.endsWith('.jsx') ? 'javascriptreact'
+            : cs.file.endsWith('.ts') ? 'typescript'
+            : cs.file.endsWith('.js') ? 'javascript'
+            : 'plaintext';
+          await lspClient.didOpen(cs.file, source, lang);
+        } catch {
+          // ignore file open errors
+        }
+      }
+      const result = await resolveCallsWithLsp(graph, indexed.callSites as CallSite[], lspClient, repo);
+      stats.lspResolved = result.resolved;
+      stats.lspAdded = result.added;
+    } catch {
+      // LSP failed — keep going with syntactic results.
+    } finally {
+      try {
+        await lspClient.shutdown();
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   if (graph.order() === 0) {
     return emptyResult('No supported source files found.', stats.symbols);
@@ -220,6 +271,10 @@ export async function pack(options: PackOptions): Promise<PackResult> {
       })),
       timings: { indexMs, rankMs, selectMs, totalMs: Date.now() - t0 },
       cache: { hits: stats.cacheHits, misses: stats.cacheMisses },
+      lsp:
+        stats.lspResolved !== undefined || stats.lspAdded !== undefined
+          ? { resolved: stats.lspResolved ?? 0, added: stats.lspAdded ?? 0 }
+          : undefined,
     };
   }
 

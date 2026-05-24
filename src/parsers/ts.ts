@@ -202,7 +202,13 @@ function visit(node: Parser.SyntaxNode, ctx: VisitorContext): void {
         if (fn) {
           const name = simpleCalleeName(fn);
           if (name && ctx.callerStack.length > 0) {
-            ctx.calls.push({ from: ctx.callerStack[ctx.callerStack.length - 1], toName: name });
+            const ident = simpleCalleeIdentNode(fn);
+            ctx.calls.push({
+              from: ctx.callerStack[ctx.callerStack.length - 1],
+              toName: name,
+              line: ident ? ident.startPosition.row + 1 : undefined,
+              character: ident ? ident.startPosition.column : undefined,
+            });
           }
         }
       }
@@ -314,6 +320,14 @@ function simpleCalleeName(fn: Parser.SyntaxNode): string | null {
   if (fn.type === 'member_expression') {
     const prop = fn.childForFieldName('property');
     if (prop) return prop.text;
+  }
+  return null;
+}
+
+function simpleCalleeIdentNode(fn: Parser.SyntaxNode): Parser.SyntaxNode | null {
+  if (fn.type === 'identifier') return fn;
+  if (fn.type === 'member_expression') {
+    return fn.childForFieldName('property') ?? null;
   }
   return null;
 }

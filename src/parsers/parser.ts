@@ -28,6 +28,9 @@ export interface ParsedImport {
 export interface ParsedCall {
   from: string;           // caller symbol id
   toName: string;         // unresolved callee name
+  /** Optional source position of the callee identifier (1-based line, 0-based col). */
+  line?: number;
+  character?: number;
 }
 
 export interface ParseResult {

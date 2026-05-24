@@ -45,6 +45,13 @@ export interface IndexOptions extends WalkOptions {
   chunk?: ChunkOptions;
 }
 
+/** Async wrapper of indexRepo that also runs LSP refinement if requested. */
+export interface LspIndexOptions extends IndexOptions {
+  lspClient?: import('../lsp/types.js').LspClient;
+  /** Logical repo root used to resolve LSP URIs back to relative paths. */
+  repoRoot?: string;
+}
+
 export interface IndexResult {
   graph: SymbolGraph;
   stats: {
@@ -54,7 +61,11 @@ export interface IndexResult {
     unresolvedCalls: number;
     cacheHits: number;
     cacheMisses: number;
+    lspResolved?: number;
+    lspAdded?: number;
   };
+  /** Available when consumers need to run LSP refinement themselves. */
+  callSites?: import('../lsp/resolver.js').CallSite[];
 }
 
 /**
@@ -78,7 +89,7 @@ export async function indexRepoAsync(
   const fileImports = new Map<string, ParsedImport[]>();
   const symbolsByFile = new Map<string, ParsedSymbol[]>();
   const symbolByName = new Map<string, string[]>();
-  const pendingCalls: { from: string; toName: string; file: string }[] = [];
+  const pendingCalls: { from: string; toName: string; file: string; line?: number; character?: number }[] = [];
 
   let fileCount = 0;
   let unresolved = 0;
@@ -151,7 +162,13 @@ export async function indexRepoAsync(
       symbolByName.set(sym.name, arr);
     }
     for (const call of parsed.calls) {
-      pendingCalls.push({ from: call.from, toName: call.toName, file: relPath });
+      pendingCalls.push({
+        from: call.from,
+        toName: call.toName,
+        file: relPath,
+        line: call.line,
+        character: call.character,
+      });
     }
   }
 
@@ -193,6 +210,15 @@ export async function indexRepoAsync(
   }
 
   const cacheStats = cache?.getStats() ?? { hits: 0, misses: 0 };
+  const callSites = pendingCalls
+    .filter((c) => c.line !== undefined && c.character !== undefined)
+    .map((c) => ({
+      file: c.file,
+      line: c.line!,
+      character: c.character!,
+      toName: c.toName,
+      from: c.from,
+    }));
   return {
     graph,
     stats: {
@@ -203,6 +229,7 @@ export async function indexRepoAsync(
       cacheHits: cacheStats.hits,
       cacheMisses: cacheStats.misses,
     },
+    callSites,
   };
 }
 
@@ -216,7 +243,7 @@ export function indexRepo(root: string, options: IndexOptions = {}): IndexResult
   const fileImports = new Map<string, ParsedImport[]>();
   const symbolsByFile = new Map<string, ParsedSymbol[]>();
   const symbolByName = new Map<string, string[]>();
-  const pendingCalls: { from: string; toName: string; file: string }[] = [];
+  const pendingCalls: { from: string; toName: string; file: string; line?: number; character?: number }[] = [];
 
   let fileCount = 0;
   let unresolved = 0;
@@ -259,7 +286,13 @@ export function indexRepo(root: string, options: IndexOptions = {}): IndexResult
     }
 
     for (const call of parsed.calls) {
-      pendingCalls.push({ from: call.from, toName: call.toName, file: file.relPath });
+      pendingCalls.push({
+        from: call.from,
+        toName: call.toName,
+        file: file.relPath,
+        line: call.line,
+        character: call.character,
+      });
     }
   }
 
@@ -304,6 +337,16 @@ export function indexRepo(root: string, options: IndexOptions = {}): IndexResult
 
   const cacheStats = cache?.getStats() ?? { hits: 0, misses: 0 };
 
+  const callSites = pendingCalls
+    .filter((c) => c.line !== undefined && c.character !== undefined)
+    .map((c) => ({
+      file: c.file,
+      line: c.line!,
+      character: c.character!,
+      toName: c.toName,
+      from: c.from,
+    }));
+
   return {
     graph,
     stats: {
@@ -314,6 +357,7 @@ export function indexRepo(root: string, options: IndexOptions = {}): IndexResult
       cacheHits: cacheStats.hits,
       cacheMisses: cacheStats.misses,
     },
+    callSites,
   };
 }
 
