@@ -3,24 +3,58 @@
 # `mincut-context`
 
 **Token-minimal context selection for AI coding agents.**
-A symbol graph of your repo + personalized PageRank + budget-constrained min-cut — picks the smallest provably-relevant context for any task.
 
-[![npm](https://img.shields.io/npm/v/mincut-context?logo=npm&color=cb3837)](https://www.npmjs.com/package/mincut-context)
-[![downloads](https://img.shields.io/npm/dm/mincut-context?color=success)](https://www.npmjs.com/package/mincut-context)
-[![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
+— picks the smallest provably-relevant context for any task.
+
+[![npm version](https://img.shields.io/npm/v/mincut-context?logo=npm&color=cb3837&label=npm)](https://www.npmjs.com/package/mincut-context)
+[![downloads](https://img.shields.io/npm/dm/mincut-context?color=success&label=downloads)](https://www.npmjs.com/package/mincut-context)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
+[![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
+[![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
 [![tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)](./tests)
-[![types](https://img.shields.io/badge/types-TypeScript-blue)](./src)
-[![node](https://img.shields.io/badge/node-%3E%3D18.17-success)](./package.json)
+[![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
 
 <p align="center"><img src="docs/demo.gif" alt="mcx pack demo — keyword + semantic search on a real repo" width="900" /></p>
 
+<div align="center">
+
+```bash
+npm install -g mincut-context     #   global CLI: mcx
+npx mincut-context pack "fix the login validation bug" --budget 4000
+```
+
+</div>
+
 > One sentence: an agent that opens `mincut-context` first gets the minimum cohesive *region* of code its task depends on — not a grep hit, not a whole file, not the whole repo.
 
 ---
 
-## The problem
+<details>
+<summary><b>Table of contents</b></summary>
+
+- [Why](#why)
+- [The idea](#the-idea)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Use it three ways](#use-it-three-ways) — [MCP server](#1-as-an-mcp-server--recommended-for-agents) · [CLI](#2-as-a-cli) · [Library](#3-as-a-library)
+- [How it works](#how-it-works)
+- [Real-world examples](#real-world-examples)
+- [Languages](#languages)
+- [CLI reference](#cli-reference)
+- [How it compares](#how-it-compares)
+- [Roadmap](#roadmap)
+- [Tradeoffs (honest)](#tradeoffs-honest)
+- [Contributing](#contributing)
+- [License](#license)
+
+</details>
+
+---
+
+## Why
 
 AI coding agents waste your context window. Two failure modes:
 
@@ -48,16 +82,37 @@ The objective is **submodular**, so a greedy algorithm gives a `(1 - 1/e) ≈ 0.
 ## Install
 
 ```bash
-npm install -g mincut-context        # global CLI
-# or
-npm install --save-dev mincut-context # per-project
+# global CLI (recommended)
+npm install -g mincut-context
+
+# or per-project
+npm install --save-dev mincut-context
+
+# or one-shot, no install
+npx mincut-context pack "your task" --budget 4000
 ```
 
-Requires Node 18.17+.
+Requires **Node ≥ 18.17**. TypeScript types ship with the package.
+
+## Quick start
+
+```bash
+# 1. Index any repo once (warms the cache)
+mcx index .
+
+# 2. Ask for context for a task
+mcx pack "fix the login validation bug" --budget 4000
+
+# 3. Pipe straight into your agent
+mcx pack "..." --format markdown > context.md
+mcx pack "..." --format json | jq '.files[].path'
+```
+
+---
 
 ## Use it three ways
 
-### 1. As an MCP server — the recommended path for agents
+### 1. As an MCP server — recommended for agents
 
 Drop into Claude Code, Codex, Cursor, or any MCP-aware client:
 
@@ -110,9 +165,25 @@ for (const f of result.files) {
 // → src/auth/session.ts      0.408  483 · attached (60%)
 ```
 
+Full TypeScript types — `pack`, `indexRepo`, `SymbolGraph`, `personalizedPageRank`, `greedySelect` are all exported.
+
 ---
 
 ## How it works
+
+```mermaid
+flowchart LR
+    A[Repo files] -->|tree-sitter| B[Symbol graph<br/>V: functions/classes<br/>E: imports/calls]
+    T[Task string] -->|keyword IDF| S[Seeds S ⊆ V]
+    T -->|optional: --embed| S
+    B --> R[Personalized<br/>PageRank<br/>α=0.85]
+    S --> R
+    R --> C[Greedy<br/>budget min-cut<br/>1−1/e bound]
+    B --> C
+    C --> P[Packed context<br/>files + ranges<br/>+ per-node reason]
+```
+
+The five steps in pseudocode:
 
 ```text
 pack(task, repo, budget):
@@ -131,7 +202,7 @@ pack(task, repo, budget):
 
 The "no isolated nodes" rule (`attach(v, T) > 0`) is what gives you the *cohesion guarantee* — adding a fully-detached node would strictly increase the cut without benefit, so the greedy refuses. That's why an "auth" task never drags in unrelated UI files even when budget permits.
 
-### Why semantic embeddings? (optional)
+### Semantic embeddings (optional)
 
 Pure keyword matching misses semantic neighbors:
 
@@ -145,7 +216,8 @@ $ mcx pack "ranking and centrality algorithm" --repo . --embed --embed-weight 0.
 → src/seeds/keyword.ts      0.080   18 tok
 ```
 
-"Centrality" never appears in any symbol name — only embeddings could find this. Uses `@xenova/transformers` (Transformers.js + ONNX), runs fully local, ~22 MB model download on first use.
+"Centrality" never appears in any symbol name — only embeddings could find this.
+Uses [`@xenova/transformers`](https://github.com/xenova/transformers.js) (Transformers.js + ONNX). Fully local, ~22 MB model download on first use.
 
 ---
 
@@ -179,7 +251,8 @@ Adding a language is one parser file implementing `LanguageParser` + one line in
 
 ---
 
-## CLI reference
+<details>
+<summary><b>CLI reference</b></summary>
 
 ```text
 Usage: mcx pack [options] <task...>
@@ -201,6 +274,16 @@ Options:
   -i, --interactive               Ink TUI for pin/exclude before output
 ```
 
+Other commands:
+
+```text
+mcx index [path]   warm the parse cache (no output beyond stats)
+mcx mcp            run as an MCP server over stdio
+mcx --version      print the installed version
+```
+
+</details>
+
 ---
 
 ## How it compares
@@ -211,7 +294,7 @@ Options:
 | **Grep / ripgrep** | ❌ | ❌ | ❌ | yes |
 | **Cursor/Continue RAG** | partial | ❌ | ✅ | hard |
 | **AST/symbol graph alone** | ❌ | ✅ | ❌ | yes |
-| **`mincut-context`** | ✅ (budget) | ✅ (graph) | ✅ (--embed) | per-node `reason` |
+| **`mincut-context`** | ✅ (budget) | ✅ (graph) | ✅ (`--embed`) | per-node `reason` |
 
 ---
 
@@ -232,7 +315,8 @@ Options:
 
 ---
 
-## Tradeoffs (honest)
+<details>
+<summary><b>Tradeoffs (honest)</b></summary>
 
 | What's not optimal | What we do |
 |---|---|
@@ -241,6 +325,8 @@ Options:
 | Embedding model adds ~22 MB on first run | Opt-in behind `--embed` flag |
 | Cold start parses whole repo | `.mincut-cache/` per-file cache planned for v1.1 |
 | Python class-level constants aren't symbols yet | Only `def` and `class` for now |
+
+</details>
 
 ---
 
@@ -256,14 +342,22 @@ node dist/adapters/cli/bin.js pack "..." --repo /path/to/some-repo
 ```
 
 PRs especially welcome for:
+
 - **New language parsers** — tree-sitter grammar + symbol queries
 - **LSP integration** — type-aware call resolution
 - **Cache layer** — persistent `.mincut-cache/`
 
 Each PR must keep the test suite green (`npm test`). New behavior requires tests first (TDD).
 
----
+## Built with
+
+- [`tree-sitter`](https://tree-sitter.github.io/tree-sitter/) — incremental parsing
+- [`graphology`](https://graphology.github.io/) — graph primitives
+- [`@xenova/transformers`](https://github.com/xenova/transformers.js) — local ONNX embeddings
+- [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) — MCP server
+- [`commander`](https://github.com/tj/commander.js) + [`ink`](https://github.com/vadimdemedes/ink) — CLI & TUI
+- [`vitest`](https://vitest.dev/) — testing
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) © [Dhrupo Nil](https://github.com/dhrupo)
