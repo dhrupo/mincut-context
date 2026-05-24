@@ -41,7 +41,7 @@ const program = new Command();
 program
   .name('mcx')
   .description('mincut-context — token-minimal context selection for AI coding agents')
-  .version('1.4.0');
+  .version('1.4.1');
 
 program
   .command('pack <task...>')

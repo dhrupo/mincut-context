@@ -3,6 +3,16 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.4.1 — 2026-05-24
+
+### Fixed
+
+- LSP fallback no longer hangs when the language-server binary is missing
+  or unreachable.  spawn/error events are now awaited up to 250 ms; if the
+  process never starts, initialize() throws clearly and pack() falls back
+  to syntactic resolution.  shutdown() races the polite handshake against
+  a 500 ms timeout so a dead LSP can't stall the caller.
+
 ## 1.4.0 — 2026-05-24
 
 ### Added

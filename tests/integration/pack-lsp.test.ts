@@ -50,6 +50,19 @@ export function caller() { return doStuff(); }`,
     if (root) await rm(root, { recursive: true, force: true });
   });
 
+  it('pack with missing LSP binary falls back cleanly (no crash)', async () => {
+    const { createTypeScriptLsp } = await import('../../src/lsp/typescript.js');
+    const lsp = createTypeScriptLsp({ command: '/nonexistent/binary-does-not-exist' });
+    const r = await pack({
+      task: 'caller',
+      repo: root,
+      budget: 500,
+      lspClient: lsp,
+    });
+    // Must not throw; result is the syntactic-only one.
+    expect(r.files.length).toBeGreaterThan(0);
+  });
+
   it('pack without LSP works as before', async () => {
     const r = await pack({ task: 'caller', repo: root, budget: 500 });
     expect(r.files.length).toBeGreaterThan(0);
