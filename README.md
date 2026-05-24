@@ -13,17 +13,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 
 </div>
 
-```text
-$ mcx pack "fix the login validation bug" --budget 4000
-
-→ src/auth/login.ts                 lines 1-84      ████████████████████ 0.541  612 tok
-→ src/auth/session.ts               lines 12-48     ████████████████···· 0.408  483 tok
-→ src/auth/validators.ts            lines 1-67      █████████████······· 0.318  501 tok
-→ tests/auth/login.test.ts          lines 1-45      ████████············ 0.211  389 tok
-→ src/db/users.ts                   lines 88-112    ████················ 0.094  244 tok
-
-selected 14 symbols · cut 6.0 · frontier 32 · 3,742 / 4,000 tokens (93%)
-```
+<p align="center"><img src="docs/demo.gif" alt="mcx pack demo — keyword + semantic search on a real repo" width="900" /></p>
 
 > One sentence: an agent that opens `mincut-context` first gets the minimum cohesive *region* of code its task depends on — not a grep hit, not a whole file, not the whole repo.
 
