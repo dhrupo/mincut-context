@@ -9,6 +9,7 @@ const TypeScript = require_('tree-sitter-typescript') as {
 };
 import {
   approxTokens,
+  type ChunkOptions,
   type ParsedCall,
   type ParsedImport,
   type ParsedSymbol,
@@ -20,7 +21,11 @@ tsParser.setLanguage(TypeScript.typescript);
 const tsxParser = new Parser();
 tsxParser.setLanguage(TypeScript.tsx);
 
-export function parseTypeScript(file: string, source: string): ParseResult {
+export function parseTypeScript(
+  file: string,
+  source: string,
+  chunkOptions?: ChunkOptions,
+): ParseResult {
   const parser = file.endsWith('.tsx') || file.endsWith('.jsx') ? tsxParser : tsParser;
 
   let tree: Parser.Tree;
@@ -43,6 +48,7 @@ export function parseTypeScript(file: string, source: string): ParseResult {
     classStack: [],
     callerStack: [],
     inTypeContext: false,
+    chunkOptions,
   });
 
   return { symbols, imports, calls };
@@ -57,6 +63,98 @@ interface VisitorContext {
   classStack: string[];
   callerStack: string[];
   inTypeContext: boolean;
+  chunkOptions?: ChunkOptions;
+}
+
+/**
+ * If chunkOptions are on and the function body exceeds the threshold, split
+ * the body into per-top-level-statement chunks, emit a sub-symbol per chunk,
+ * and route the body walk through chunk-aware caller-stack management.
+ *
+ * Returns true if the function was chunked (caller should NOT also emit the
+ * parent symbol or recurse into the body again).
+ */
+function tryEmitChunks(
+  fnNode: Parser.SyntaxNode,
+  bodyNode: Parser.SyntaxNode | null,
+  qualifiedName: string,
+  ctx: VisitorContext,
+): boolean {
+  if (!ctx.chunkOptions?.enabled || !bodyNode) return false;
+  const bodyText = ctx.source.slice(bodyNode.startIndex, bodyNode.endIndex);
+  if (approxTokens(bodyText) <= ctx.chunkOptions.maxTokens) return false;
+
+  // Collect top-level statements inside the body block.
+  const statements: Parser.SyntaxNode[] = [];
+  for (let i = 0; i < bodyNode.namedChildCount; i++) {
+    const c = bodyNode.namedChild(i);
+    if (c) statements.push(c);
+  }
+  if (statements.length < 2) return false; // not worth chunking
+
+  // Greedy pack statements into chunks of ~maxTokens.
+  const target = ctx.chunkOptions.maxTokens;
+  const chunks: Array<{ start: Parser.SyntaxNode; end: Parser.SyntaxNode }> = [];
+  let current: Parser.SyntaxNode[] = [];
+  let currentTokens = 0;
+  for (const stmt of statements) {
+    const stmtTokens = approxTokens(ctx.source.slice(stmt.startIndex, stmt.endIndex));
+    if (currentTokens + stmtTokens > target && current.length > 0) {
+      chunks.push({ start: current[0], end: current[current.length - 1] });
+      current = [];
+      currentTokens = 0;
+    }
+    current.push(stmt);
+    currentTokens += stmtTokens;
+  }
+  if (current.length > 0) {
+    chunks.push({ start: current[0], end: current[current.length - 1] });
+  }
+  if (chunks.length < 2) return false; // a single chunk is just the original
+
+  // Emit each chunk as a sub-symbol; walk children inside it as if it were
+  // its own function body (so calls attribute to the chunk).
+  chunks.forEach((chunk, index) => {
+    const chunkText = ctx.source.slice(chunk.start.startIndex, chunk.end.endIndex);
+    const sym: ParsedSymbol = {
+      id: `${ctx.file}:${qualifiedName}#${index}`,
+      name: `${qualifiedName.split('.').pop() ?? qualifiedName}#${index}`,
+      file: ctx.file,
+      kind: 'function',
+      startLine: chunk.start.startPosition.row + 1,
+      endLine: chunk.end.endPosition.row + 1,
+      tokens: approxTokens(chunkText),
+      chunk: { parent: qualifiedName, index },
+    };
+    ctx.symbols.push(sym);
+    ctx.callerStack.push(sym.id);
+    // Visit all statements in this chunk so call edges attribute to this chunk.
+    for (const stmt of statementsBetween(bodyNode, chunk.start, chunk.end)) {
+      visit(stmt, ctx);
+    }
+    ctx.callerStack.pop();
+  });
+  // Reference the outer fnNode so the linter doesn't warn — kept for future
+  // diagnostics (e.g. printing the chunked function's signature in --verbose).
+  void fnNode;
+  return true;
+}
+
+function statementsBetween(
+  body: Parser.SyntaxNode,
+  start: Parser.SyntaxNode,
+  end: Parser.SyntaxNode,
+): Parser.SyntaxNode[] {
+  const out: Parser.SyntaxNode[] = [];
+  let inside = false;
+  for (let i = 0; i < body.namedChildCount; i++) {
+    const c = body.namedChild(i);
+    if (!c) continue;
+    if (c === start) inside = true;
+    if (inside) out.push(c);
+    if (c === end) break;
+  }
+  return out;
 }
 
 function visit(node: Parser.SyntaxNode, ctx: VisitorContext): void {
@@ -65,6 +163,10 @@ function visit(node: Parser.SyntaxNode, ctx: VisitorContext): void {
     case 'generator_function_declaration': {
       const name = node.childForFieldName('name')?.text;
       if (name) {
+        const body = node.childForFieldName('body');
+        if (tryEmitChunks(node, body, name, ctx)) {
+          return;
+        }
         const sym = makeSymbol(ctx, node, name, name, 'function');
         ctx.symbols.push(sym);
         ctx.callerStack.push(sym.id);
@@ -121,6 +223,10 @@ function visit(node: Parser.SyntaxNode, ctx: VisitorContext): void {
       if (name) {
         const cls = ctx.classStack[ctx.classStack.length - 1];
         const qualified = cls ? `${cls}.${name}` : name;
+        const body = node.childForFieldName('body');
+        if (tryEmitChunks(node, body, qualified, ctx)) {
+          return;
+        }
         const sym = makeSymbol(ctx, node, name, qualified, 'method');
         ctx.symbols.push(sym);
         ctx.callerStack.push(sym.id);

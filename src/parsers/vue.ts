@@ -1,5 +1,5 @@
 import { parseTypeScript } from './ts.js';
-import type { ParseResult } from './parser.js';
+import type { ChunkOptions, ParseResult } from './parser.js';
 
 /**
  * Vue Single-File Component parser.
@@ -15,7 +15,11 @@ import type { ParseResult } from './parser.js';
  * pathological edge cases fall back to "no symbols", which the rest of the
  * pipeline tolerates gracefully.
  */
-export function parseVueSfc(file: string, source: string): ParseResult {
+export function parseVueSfc(
+  file: string,
+  source: string,
+  chunkOptions?: ChunkOptions,
+): ParseResult {
   const blocks = extractScriptBlocks(source);
   if (blocks.length === 0) {
     return { symbols: [], imports: [], calls: [] };
@@ -26,7 +30,7 @@ export function parseVueSfc(file: string, source: string): ParseResult {
   for (const block of blocks) {
     // Parse each block as TS regardless of lang.  tree-sitter-typescript handles
     // plain JS just fine, so we don't bother dispatching here.
-    const inner = parseTypeScript(file, block.content);
+    const inner = parseTypeScript(file, block.content, chunkOptions);
 
     // Shift line numbers from script-local back to SFC-global.
     const offset = block.startLine - 1;

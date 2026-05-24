@@ -40,6 +40,11 @@ export interface PackOptions {
   verbose?: boolean;
   /** Worker count for parallel parsing. 0 (default) = sequential. */
   parallel?: number;
+  /**
+   * Split large functions into per-statement chunks (TS/JS/Vue only).
+   * Pass { enabled: true, maxTokens: 400 } to opt in.
+   */
+  chunk?: { enabled: boolean; maxTokens: number };
 }
 
 export interface FileRange {
@@ -95,6 +100,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     communityBoost = 0.5,
     verbose = false,
     parallel = 0,
+    chunk,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
@@ -102,8 +108,8 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   const walkOpts: WalkOptions = { include, exclude };
   const { graph, stats } =
     parallel > 0
-      ? await indexRepoAsync(repo, { ...walkOpts, cache, cacheDir, parallel })
-      : indexRepo(repo, { ...walkOpts, cache, cacheDir });
+      ? await indexRepoAsync(repo, { ...walkOpts, cache, cacheDir, parallel, chunk })
+      : indexRepo(repo, { ...walkOpts, cache, cacheDir, chunk });
   const indexMs = Date.now() - t0;
 
   if (graph.order() === 0) {

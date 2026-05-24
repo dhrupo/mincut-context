@@ -58,6 +58,8 @@ program
   .option('--community-boost <number>', 'Louvain same-community boost factor (0 = disabled)', (v) => Number(v), 0.5)
   .option('-v, --verbose', 'Print algorithm trace (seeds, ranks, selection order, timings)', false)
   .option('-j, --parallel <n>', 'Use n parallel parser workers (0 = sequential, default 0)', (v) => Number(v), 0)
+  .option('--chunk', 'Split large functions into sub-symbol chunks (TS/JS/Vue)', false)
+  .option('--chunk-tokens <n>', 'Token threshold for chunking', (v) => Number(v), 400)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -87,6 +89,7 @@ program
         communityBoost: opts.communityBoost,
         verbose: opts.verbose,
         parallel: opts.parallel,
+        chunk: opts.chunk ? { enabled: true, maxTokens: opts.chunkTokens } : undefined,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();

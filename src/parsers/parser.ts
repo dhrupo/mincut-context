@@ -8,6 +8,14 @@ export interface ParsedSymbol {
   startLine: number;      // 1-based
   endLine: number;        // 1-based, inclusive
   tokens: number;         // approximate token count for the symbol body
+  /** Present on sub-symbol chunks emitted from a large parent function. */
+  chunk?: { parent: string; index: number };
+}
+
+export interface ChunkOptions {
+  enabled: boolean;
+  /** Functions whose body exceeds this token count get split into chunks. */
+  maxTokens: number;
 }
 
 export interface ParsedImport {

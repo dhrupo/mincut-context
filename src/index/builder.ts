@@ -4,7 +4,7 @@ import { parseTypeScript } from '../parsers/ts.js';
 import { parsePython } from '../parsers/py.js';
 import { parsePhp } from '../parsers/php.js';
 import { parseVueSfc } from '../parsers/vue.js';
-import type { ParseResult, ParsedImport, ParsedSymbol } from '../parsers/parser.js';
+import type { ChunkOptions, ParseResult, ParsedImport, ParsedSymbol } from '../parsers/parser.js';
 import { walk, type WalkOptions } from './walker.js';
 import { ParseCache, fileFingerprint } from './cache.js';
 import { ParsePool } from './worker-pool.js';
@@ -14,12 +14,19 @@ const PY_EXT = new Set(['.py', '.pyi']);
 const PHP_EXT = new Set(['.php']);
 const VUE_EXT = new Set(['.vue']);
 
-function parseForExt(file: string, source: string): ParseResult | null {
+function parseForExt(
+  file: string,
+  source: string,
+  chunkOptions?: ChunkOptions,
+): ParseResult | null {
   const ext = path.extname(file);
-  if (TS_EXT.has(ext)) return parseTypeScript(file, source);
+  if (TS_EXT.has(ext)) return parseTypeScript(file, source, chunkOptions);
   if (PY_EXT.has(ext)) return parsePython(file, source);
   if (PHP_EXT.has(ext)) return parsePhp(file, source);
-  if (VUE_EXT.has(ext)) return parseVueSfc(file, source);
+  if (VUE_EXT.has(ext)) {
+    // Vue forwards to TS for the script block — pass chunkOptions through.
+    return parseVueSfc(file, source, chunkOptions);
+  }
   return null;
 }
 
@@ -34,6 +41,11 @@ export interface IndexOptions extends WalkOptions {
    * Only honored by `indexRepoAsync()`.
    */
   parallel?: number;
+  /**
+   * When set, large functions/methods (>maxTokens) are split into sub-symbol
+   * chunks at top-level statement boundaries.  TS/JS/Vue only in v1.3.
+   */
+  chunk?: ChunkOptions;
 }
 
 export interface IndexResult {
@@ -221,12 +233,12 @@ export function indexRepo(root: string, options: IndexOptions = {}): IndexResult
         if (hit) {
           parsed = hit;
         } else {
-          parsed = parseForExt(file.relPath, file.source);
+          parsed = parseForExt(file.relPath, file.source, options.chunk);
           if (parsed) cache.put(file.relPath, fp.mtimeMs, fp.size, parsed);
         }
       }
     } else {
-      parsed = parseForExt(file.relPath, file.source);
+      parsed = parseForExt(file.relPath, file.source, options.chunk);
     }
     if (!parsed) continue;
 
