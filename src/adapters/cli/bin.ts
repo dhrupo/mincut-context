@@ -66,6 +66,7 @@ program
   .option('--chunk', 'Split large functions into sub-symbol chunks (TS/JS/Vue)', false)
   .option('--chunk-tokens <n>', 'Token threshold for chunking', (v) => Number(v), 400)
   .option('--lsp', 'Refine call edges via typescript-language-server (requires the binary on PATH)', false)
+  .option('--trim-ratio <r>', 'Drop tail files scoring < r × top-file (0 disables, default 0.02)', (v) => Number(v), 0.02)
   .action(async (taskWords: string[], opts) => {
     const task = taskWords.join(' ').trim();
     if (!task) {
@@ -99,6 +100,7 @@ program
         lspClient: opts.lsp
           ? (await import('../../lsp/typescript.js')).createTypeScriptLsp()
           : undefined,
+        trimScoreRatio: opts.trimRatio,
       });
       const color = Boolean(opts.color) && process.stdout.isTTY;
       const fmt = (opts.format ?? 'plain').toLowerCase();

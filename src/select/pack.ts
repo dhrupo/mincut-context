@@ -48,6 +48,12 @@ export interface PackOptions {
    */
   chunk?: { enabled: boolean; maxTokens: number };
   /**
+   * Drop trailing files whose score is below (trimScoreRatio × top-file's score).
+   * Defaults to 0.02 (drop files whose score is < 2% of the strongest file).
+   * Pass 0 to disable.
+   */
+  trimScoreRatio?: number;
+  /**
    * Optional LSP client used to refine call edges via textDocument/definition.
    * When provided, ambiguous syntactic name matches get upgraded to
    * type-resolved edges where the language server has a definite answer.
@@ -112,6 +118,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     parallel = 0,
     chunk,
     lspClient,
+    trimScoreRatio = 0.02,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
@@ -254,6 +261,24 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   }
   files.sort((a, b) => b.score - a.score);
 
+  // Trim trailing low-score files.  These are "filler" pulled in by
+  // attachment alone — they help cohesion but often add noise without much
+  // information.  Default cut: anything below 2% of the top file's score.
+  let trimmedTokens = selection.tokens;
+  if (trimScoreRatio > 0 && files.length > 1) {
+    const top = files[0].score;
+    if (top > 0) {
+      const threshold = top * trimScoreRatio;
+      const keep = files.filter((f, i) => i === 0 || f.score >= threshold);
+      const dropped = files.length - keep.length;
+      if (dropped > 0) {
+        trimmedTokens = keep.reduce((sum, f) => sum + f.tokens, 0);
+        files.length = 0;
+        files.push(...keep);
+      }
+    }
+  }
+
   let trace: PackTrace | undefined;
   if (verbose) {
     const topRanked = [...ranks.entries()]
@@ -280,7 +305,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
 
   return {
     files,
-    tokens: selection.tokens,
+    tokens: trimmedTokens,
     graph: {
       selected: selection.selected.size,
       frontier: frontierCount(graph, selection.selected),
