@@ -5,7 +5,8 @@
 **Token-minimal context selection for AI coding agents.**
 A symbol graph of your repo + personalized PageRank + budget-constrained min-cut — picks the smallest provably-relevant context for any task.
 
-[![npm](https://img.shields.io/npm/v/mincut-context?logo=npm)](https://www.npmjs.com/package/mincut-context)
+[![npm](https://img.shields.io/npm/v/mincut-context?logo=npm&color=cb3837)](https://www.npmjs.com/package/mincut-context)
+[![downloads](https://img.shields.io/npm/dm/mincut-context?color=success)](https://www.npmjs.com/package/mincut-context)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)](./tests)
 [![types](https://img.shields.io/badge/types-TypeScript-blue)](./src)
