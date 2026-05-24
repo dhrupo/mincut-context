@@ -272,6 +272,9 @@ Options:
       --embed-weight <number>     Blend 0..1 (0=keyword, 1=embedding only)
       --embed-model <id>          HF model id (default Xenova/all-MiniLM-L6-v2)
   -i, --interactive               Ink TUI for pin/exclude before output
+      --cache                     Use persistent parse cache (.mincut-cache/) — fast repeat runs
+      --cache-dir <path>          Override cache directory (absolute path)
+      --community-boost <number>  Louvain same-community boost (default 0.5, 0 = disabled)
 ```
 
 Other commands:
@@ -300,18 +303,18 @@ mcx --version      print the installed version
 
 ## Roadmap
 
-- [x] Core: graph + personalized PageRank + greedy min-cut
-- [x] TS/JS parser
-- [x] Python parser
-- [x] CLI (plain / JSON / markdown)
-- [x] MCP server
-- [x] Local embeddings (`@xenova/transformers`)
-- [x] Ink TUI
-- [ ] Persistent on-disk parse cache (incremental reindex)
-- [ ] Louvain community boost for explanation quality
+- [x] Core: graph + personalized PageRank + greedy min-cut **(v1.0)**
+- [x] TS/JS parser **(v1.0)**
+- [x] Python parser **(v1.0)**
+- [x] CLI (plain / JSON / markdown) **(v1.0)**
+- [x] MCP server **(v1.0)**
+- [x] Local embeddings (`@xenova/transformers`) **(v1.0)**
+- [x] Ink TUI **(v1.0)**
+- [x] Persistent on-disk parse cache (incremental reindex) **(v1.1)** — 5.2× warm-run speedup
+- [x] Louvain community boost **(v1.1)**
 - [ ] Vue SFC / Svelte parsers
 - [ ] Rust / Go parsers
-- [ ] LSP-backed type-aware call resolution (post-1.0)
+- [ ] LSP-backed type-aware call resolution
 
 ---
 

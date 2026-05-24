@@ -3,8 +3,12 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const BIN = path.resolve(__dirname, '../../dist/adapters/cli/bin.js');
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'),
+).version as string;
 
 describe('CLI smoke tests (built bin)', () => {
   let root: string;
@@ -29,10 +33,10 @@ describe('CLI smoke tests (built bin)', () => {
     if (root) await rm(root, { recursive: true, force: true });
   });
 
-  it('prints version', () => {
+  it('prints version (matches package.json)', () => {
     const r = spawnSync('node', [BIN, '--version'], { encoding: 'utf8' });
     expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe('1.0.0');
+    expect(r.stdout.trim()).toBe(PACKAGE_VERSION);
   });
 
   it('mcx index reports stats on a real repo', () => {
