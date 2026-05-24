@@ -33,7 +33,7 @@ describe('persistent JSON parse cache', () => {
     const cacheDir = path.join(root, '.mincut-cache', 'v1');
     const entries = await readdir(cacheDir);
     expect(entries.length).toBe(2);
-    expect(entries.every((e) => e.endsWith('.json'))).toBe(true);
+    expect(entries.every((e) => e.endsWith('.json.gz'))).toBe(true);
   });
 
   it('second run hits cache for unchanged files (zero parses)', async () => {
@@ -93,20 +93,18 @@ describe('persistent JSON parse cache', () => {
   });
 
   it('skips cache entries with wrong schema version', async () => {
-    // Seed cache.
     indexRepo(root, { cache: true });
 
-    // Tamper one cache entry: change its version.
     const cacheDir = path.join(root, '.mincut-cache', 'v1');
     const files = await readdir(cacheDir);
     const target = path.join(cacheDir, files[0]);
     const { readFile, writeFile: w } = await import('node:fs/promises');
-    const raw = JSON.parse(await readFile(target, 'utf8'));
+    const { gzipSync, gunzipSync } = await import('node:zlib');
+    const raw = JSON.parse(gunzipSync(await readFile(target)).toString('utf8'));
     raw.version = 'v0-bogus';
-    await w(target, JSON.stringify(raw));
+    await w(target, gzipSync(Buffer.from(JSON.stringify(raw))));
 
     const second = indexRepo(root, { cache: true });
-    // The tampered entry should be treated as a miss.
     expect(second.stats.cacheMisses).toBeGreaterThanOrEqual(1);
   });
 

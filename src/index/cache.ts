@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import type { ParseResult } from '../parsers/parser.js';
 
@@ -34,7 +35,11 @@ export class ParseCache {
   /**
    * Look up a cached parse result.  Returns undefined on cache miss, OR if
    * the cached entry's mtime/size do not match the current file on disk, OR
-   * if the schema version has drifted.
+   * if the schema version has drifted, OR if the entry can't be decoded.
+   *
+   * Reads `.json.gz` (current v1.5+ format).  Legacy `.json` entries from
+   * v1.1–v1.4 are intentionally treated as misses so they get rewritten in
+   * the compressed format.
    */
   get(relPath: string, mtimeMs: number, size: number): ParseResult | undefined {
     const file = this.entryPath(relPath);
@@ -44,7 +49,9 @@ export class ParseCache {
     }
     let raw: CacheEntry;
     try {
-      raw = JSON.parse(readFileSync(file, 'utf8')) as CacheEntry;
+      const compressed = readFileSync(file);
+      const decompressed = gunzipSync(compressed).toString('utf8');
+      raw = JSON.parse(decompressed) as CacheEntry;
     } catch {
       this.stats.misses += 1;
       return undefined;
@@ -70,16 +77,14 @@ export class ParseCache {
       size,
       result,
     };
-    writeFileSync(this.entryPath(relPath), JSON.stringify(entry));
+    const compressed = gzipSync(Buffer.from(JSON.stringify(entry), 'utf8'));
+    writeFileSync(this.entryPath(relPath), compressed);
   }
 
   private entryPath(relPath: string): string {
-    // Stable, filesystem-safe filename from the source path.  We hash so deeply
-    // nested paths don't blow the OS filename limit, and we prefix with a short
-    // human-readable hint so cache dirs are debuggable.
     const hash = createHash('sha1').update(relPath).digest('hex').slice(0, 16);
     const hint = relPath.replace(/[^a-zA-Z0-9_.-]+/g, '_').slice(0, 40);
-    return path.join(this.dir, `${hint}-${hash}.json`);
+    return path.join(this.dir, `${hint}-${hash}.json.gz`);
   }
 }
 
