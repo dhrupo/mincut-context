@@ -3,6 +3,46 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.6.0 — 2026-05-25
+
+The "honest claims" release.  We can now point at numbers instead of prose.
+
+### Added
+
+- **Evaluation suite** at `eval/`.  Twelve hand-labeled tasks against this
+  repo itself, four comparison strategies (mincut, mincut+embed, grep,
+  random), and an end-to-end runner that writes a Markdown report.
+
+  ```
+  npm run eval
+  ```
+
+  Live results at 4000-token budget:
+
+  | strategy       | P    | R    | F1   | tok-eff |
+  |----------------|-----:|-----:|-----:|--------:|
+  | **mincut**     | 0.30 | 0.97 | 0.44 |   0.413 |
+  | mincut-embed   | 0.30 | 0.97 | 0.44 |   0.413 |
+  | grep           | 0.24 | 0.56 | 0.30 |   0.142 |
+  | random         | 0.02 | 0.11 | 0.03 |   0.028 |
+
+  Token-efficiency = recall × 1000 / tokens.  mincut catches 97% of
+  correct files vs 56% for grep, at ~3× better token-efficiency.
+
+- **`examples/` directory** with drop-in integration configs for Claude Code,
+  Codex, Cursor, generic MCP clients, GitHub Actions PR-context workflow,
+  programmatic library usage, and shell pipeline.
+
+### Internals
+
+- `eval/` and `examples/` excluded from the published tarball via `.npmignore`
+  (npm package stays the same size).
+- New `npm run eval` script.
+- 8 new unit tests for the metrics math + 6 unit tests for examples
+  validation.
+
+### Tests: 256 across 40 files (+14 net)
+
 ## 1.5.0 — 2026-05-24
 
 A quality + polish release.  Five improvements land; default behavior

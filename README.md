@@ -12,7 +12,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
-[![tests](https://img.shields.io/badge/tests-242%20passing-brightgreen)](./tests)
+[![tests](https://img.shields.io/badge/tests-256%20passing-brightgreen)](./tests)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
@@ -30,7 +30,7 @@ npx mincut-context pack "fix the login validation bug" --budget 4000
 
 > One sentence: an agent that opens `mincut-context` first gets the minimum cohesive *region* of code its task depends on — not a grep hit, not a whole file, not the whole repo.
 
-> **What's new in v1.5** — smarter seed scoring (path + kind + test-dir penalty) · gzip-compressed cache (~3.5× smaller) · automatic tail-trim · `mcx doctor` self-check · MCP graph-navigation tools (`find_callers`, `find_callees`, `search_symbols`). See [CHANGELOG.md](./CHANGELOG.md).
+> **What's new in v1.6** — quantified at last. 12-task labeled [evaluation suite](./eval/results.md) shows mincut catches **97% of correct files vs 56% for grep**, at 3× better token-efficiency. Plus drop-in [`examples/`](./examples/) for Claude Code, Codex, Cursor, GitHub Actions. See [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
@@ -371,6 +371,19 @@ mcx doctor                                             # environment self-check
 | **AST/symbol graph alone** | ❌ | ✅ | ❌ | ❌ | yes |
 | **`mincut-context`** | ✅ (budget) | ✅ (graph) | ✅ (`--embed`) | ✅ (`--lsp`) | per-node `reason` |
 
+### Measured
+
+12 labeled tasks against this repo at a 4000-token budget — full report in [`eval/results.md`](./eval/results.md):
+
+| strategy | precision | recall | F1 | token-efficiency |
+|---|---:|---:|---:|---:|
+| **mincut** | **0.30** | **0.97** | **0.44** | **0.413** |
+| mincut + `--embed` | 0.30 | 0.97 | 0.44 | 0.413 |
+| grep keyword baseline | 0.24 | 0.56 | 0.30 | 0.142 |
+| random selection (control) | 0.02 | 0.11 | 0.03 | 0.028 |
+
+`npm run eval` reproduces these numbers locally.  Add your own labeled tasks to `eval/fixtures/` to score against your codebase.
+
 ---
 
 ## Roadmap
@@ -399,6 +412,8 @@ mcx doctor                                             # environment self-check
 - [x] Tail-file trimming **(v1.5)** — drops weak attachment-only files
 - [x] `mcx doctor` environment self-check **(v1.5)**
 - [x] MCP graph-navigation tools: find_callers, find_callees, search_symbols **(v1.5)**
+- [x] Evaluation suite — labeled tasks + baselines + precision/recall/F1/tok-eff **(v1.6)**
+- [x] Examples directory — Claude Code, Codex, Cursor, GitHub Actions, library, shell **(v1.6)**
 - [ ] Pyright / Intelephense LSP adapters
 - [ ] Svelte / Rust / Go parsers
 
