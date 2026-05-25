@@ -1,0 +1,9 @@
+{
+  "_comment": "Drop into .cursor/mcp.json (per-project) or ~/.cursor/mcp.json (global).",
+  "mcpServers": {
+    "mincut-context": {
+      "command": "npx",
+      "args": ["-y", "mincut-context", "mcp"]
+    }
+  }
+}

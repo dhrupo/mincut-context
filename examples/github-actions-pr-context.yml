@@ -1,0 +1,63 @@
+# .github/workflows/pr-context.yml
+#
+# On every PR, runs `mcx pack` against the PR's changed-file paths as the
+# task description and posts a sticky comment summarizing the minimum
+# relevant context for human (or AI) reviewers.
+#
+# Drop into your repo's .github/workflows/ directory.
+
+name: pr-context
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pack-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install mincut-context
+        run: npm install -g mincut-context
+
+      - name: Compute changed-file summary for task
+        id: changed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Use the PR title + changed-file names as the seed.
+          TASK=$(git diff --name-only "$BASE" "$HEAD" | tr '\n' ' ' | head -c 200)
+          echo "task=$TASK" >> "$GITHUB_OUTPUT"
+
+      - name: Pack context
+        env:
+          MCX_TASK: ${{ steps.changed.outputs.task }}
+        run: |
+          mcx pack "$MCX_TASK" \
+            --repo . \
+            --budget 8000 \
+            --format markdown \
+            --cache \
+            --exclude "node_modules/**" "dist/**" \
+            > context.md
+          echo "::group::Packed context"
+          cat context.md
+          echo "::endgroup::"
+
+      - name: Post / update sticky comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: mincut-context
+          path: context.md

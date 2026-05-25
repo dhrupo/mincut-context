@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mincut-context": {
+      "command": "npx",
+      "args": ["-y", "mincut-context", "mcp"]
+    }
+  }
+}

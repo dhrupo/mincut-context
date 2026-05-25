@@ -1,0 +1,9 @@
+{
+  "_comment": "Drop into ~/.codex/config.json. Codex uses the same MCP shape as Claude Code.",
+  "mcpServers": {
+    "mincut-context": {
+      "command": "npx",
+      "args": ["-y", "mincut-context", "mcp"]
+    }
+  }
+}

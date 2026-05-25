@@ -1,0 +1,12 @@
+{
+  "_comment": "Drop into ~/.claude/settings.json (global) OR <repo>/.claude/settings.json (per-project). Claude Code picks up MCP servers from the 'mcpServers' key.",
+  "mcpServers": {
+    "mincut-context": {
+      "command": "npx",
+      "args": ["-y", "mincut-context", "mcp"],
+      "env": {
+        "_HINT": "no env vars needed — repo path is passed per-call by the agent"
+      }
+    }
+  }
+}
