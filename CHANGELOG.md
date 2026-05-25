@@ -3,6 +3,41 @@
 All notable changes to `mincut-context` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.7.0 — 2026-05-25
+
+### Added
+
+- **Cross-repo evaluation** — labeled task sets for **FluentForm** (PHP +
+  Vue + JS, ~800 files) and **Fluent Player** (TS/JSX + admin Vue, ~225 files)
+  alongside the original self-repo fixtures.  28 hand-labeled tasks total
+  across 3 codebases.  Full per-repo + aggregate report at
+  [`eval/CROSS-REPO-RESULTS.md`](./eval/CROSS-REPO-RESULTS.md).
+
+  Aggregate result: **mincut catches 83% of correct files vs grep's 42% —
+  ~2× better recall, ~2.5× better token-efficiency** across three real
+  codebases.
+
+- **Coverage gate in CI** — new `coverage` job runs `vitest --coverage` on
+  every push with thresholds 85% statements / 80% branches / 90% functions
+  / 85% lines.  HTML report uploaded as a 30-day CI artifact.
+
+- **Algorithm research** — implemented CELF (Cost-Effective Lazy Forward)
+  as an alternative to greedy.  Benchmarked: **CELF diverges from greedy
+  on our objective** and is slower on big graphs (FluentForm: 13 ms greedy
+  vs 112 ms CELF).  Honest writeup at
+  [`eval/ALGORITHM-RESEARCH.md`](./eval/ALGORITHM-RESEARCH.md).  CELF
+  ships as opt-in code but is NOT the default — greedy stays.
+
+### Improved
+
+- **Actionable error messages** — "no symbols matched" now suggests
+  `--embed`; "no source files found" lists supported extensions and
+  points users at `--repo`/`--include`/`--exclude`.
+- **`mcx mcp --help`** description cleaned up (was stale "slice 8 —
+  placeholder").
+
+### Tests: 261 across 41 files (+5 net)
+
 ## 1.6.0 — 2026-05-25
 
 The "honest claims" release.  We can now point at numbers instead of prose.

@@ -13,7 +13,8 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
 [![ci](https://github.com/dhrupo/mincut-context/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dhrupo/mincut-context/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-256%20passing-brightgreen)](./tests)
+[![tests](https://img.shields.io/badge/tests-261%20passing-brightgreen)](./tests)
+[![coverage](https://img.shields.io/badge/coverage-88.6%25-brightgreen)](./eval/CROSS-REPO-RESULTS.md)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 </div>
@@ -31,7 +32,7 @@ npx mincut-context pack "fix the login validation bug" --budget 4000
 
 > One sentence: an agent that opens `mincut-context` first gets the minimum cohesive *region* of code its task depends on — not a grep hit, not a whole file, not the whole repo.
 
-> **What's new in v1.6** — quantified at last. 12-task labeled [evaluation suite](./eval/results.md) shows mincut catches **97% of correct files vs 56% for grep**, at 3× better token-efficiency. Plus drop-in [`examples/`](./examples/) for Claude Code, Codex, Cursor, GitHub Actions. See [CHANGELOG.md](./CHANGELOG.md).
+> **What's new in v1.7** — proven on 3 real codebases. **28 labeled tasks**, full report at [`eval/CROSS-REPO-RESULTS.md`](./eval/CROSS-REPO-RESULTS.md). Aggregate: mincut catches **83% of correct files vs grep's 42%**. Plus 88.6% test coverage with CI gate. See [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
@@ -374,16 +375,31 @@ mcx doctor                                             # environment self-check
 
 ### Measured
 
-12 labeled tasks against this repo at a 4000-token budget — full report in [`eval/results.md`](./eval/results.md):
+**28 hand-labeled tasks across 3 real codebases** at a 4000-token budget — full report in [`eval/CROSS-REPO-RESULTS.md`](./eval/CROSS-REPO-RESULTS.md):
 
 | strategy | precision | recall | F1 | token-efficiency |
 |---|---:|---:|---:|---:|
-| **mincut** | **0.30** | **0.97** | **0.44** | **0.413** |
-| mincut + `--embed` | 0.30 | 0.97 | 0.44 | 0.413 |
-| grep keyword baseline | 0.24 | 0.56 | 0.30 | 0.142 |
-| random selection (control) | 0.02 | 0.11 | 0.03 | 0.028 |
+| **mincut** | **0.27** | **0.83** | **0.39** | **0.270** |
+| mincut + `--embed` | 0.27 | 0.83 | 0.39 | 0.270 |
+| grep keyword baseline | 0.11 | 0.42 | 0.16 | 0.105 |
+| random selection (control) | 0.01 | 0.04 | 0.01 | 0.009 |
 
-`npm run eval` reproduces these numbers locally.  Add your own labeled tasks to `eval/fixtures/` to score against your codebase.
+Per-repo breakdown:
+
+| repo | tasks | mincut R | grep R | mincut F1 | grep F1 |
+|---|---:|---:|---:|---:|---:|
+| mincut-context (self) | 12 | **0.97** | 0.56 | 0.44 | 0.30 |
+| FluentForm | 8 | **0.88** | 0.13 | 0.43 | 0.04 |
+| Fluent Player | 8 | **0.63** | 0.56 | 0.31 | 0.13 |
+
+Reproduce locally:
+```bash
+npm run eval                                                       # self-repo
+npx tsx eval/runner.ts --fixtures eval/fixtures/fluentform-tasks.json
+npx tsx eval/runner.ts --fixtures eval/fixtures/fluentplayer-tasks.json
+```
+
+Add your own labeled tasks under `eval/fixtures/` to score against your codebase.
 
 ---
 
@@ -415,6 +431,9 @@ mcx doctor                                             # environment self-check
 - [x] MCP graph-navigation tools: find_callers, find_callees, search_symbols **(v1.5)**
 - [x] Evaluation suite — labeled tasks + baselines + precision/recall/F1/tok-eff **(v1.6)**
 - [x] Examples directory — Claude Code, Codex, Cursor, GitHub Actions, library, shell **(v1.6)**
+- [x] Cross-repo eval — FluentForm + Fluent Player (28 tasks total, 3 codebases) **(v1.7)**
+- [x] CI coverage gate (>=85%) **(v1.7)**
+- [x] CELF lazy-greedy algorithm research (greedy stays — CELF diverges on our objective) **(v1.7)**
 - [ ] Pyright / Intelephense LSP adapters
 - [ ] Svelte / Rust / Go parsers
 
