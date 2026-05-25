@@ -12,14 +12,17 @@ const SKIP_DIR = new Set(['node_modules', 'dist', '.git', '.mincut-cache', 'cove
  * `grep -l keyword src/` and returns hits.  We score it the same way we
  * score mincut: precision/recall/F1 against the labeled correct set.
  */
-export function grepBaseline(task: string, repo: string, budget = 4000): Retrieval {
+export function grepBaseline(task: string, repo: string, budget = 4000, exclude: string[] = []): Retrieval {
   const keywords = tokenize(task);
   if (keywords.length === 0) return { files: [], tokens: 0 };
+
+  const excludeRes = exclude.map(globToRegex);
 
   const matches: Array<{ rel: string; tokens: number; hits: number }> = [];
   walk(repo, '', (relPath, absPath) => {
     const ext = path.extname(relPath);
     if (!SUPPORTED.has(ext)) return;
+    if (excludeRes.some((re) => re.test(relPath))) return;
     let content = '';
     try {
       content = readFileSync(absPath, 'utf8');
@@ -56,6 +59,15 @@ function tokenize(s: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9_]+/)
     .filter((t) => t.length > 1);
+}
+
+function globToRegex(glob: string): RegExp {
+  const re = glob
+    .replace(/[.+?^$()|[\]{}]/g, '\\$&')
+    .replace(/\*\*/g, '___DOUBLESTAR___')
+    .replace(/\*/g, '[^/]*')
+    .replace(/___DOUBLESTAR___/g, '.*');
+  return new RegExp(`^${re}$`);
 }
 
 function walk(repo: string, sub: string, fn: (rel: string, abs: string) => void): void {

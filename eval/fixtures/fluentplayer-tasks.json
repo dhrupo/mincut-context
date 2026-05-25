@@ -1,0 +1,65 @@
+{
+  "_comment": "Hand-labeled evaluation tasks against the Fluent Player free plugin (TS/JS-heavy). 'repo' is absolute. Labels picked from real-world runs earlier in the project.",
+  "repo": "/Volumes/Projects/forms/wp-content/plugins/fluent-player-dev",
+  "tasks": [
+    {
+      "id": "analytics-tracker",
+      "task": "video analytics visit and play tracking",
+      "correct": [
+        "resources/js/utils/googleAnalytics.js",
+        "resources/js/AnalyticsTracker.js"
+      ]
+    },
+    {
+      "id": "playback-speed",
+      "task": "video playback speed control menu",
+      "correct": [
+        "resources/blocks/media/components/player/menus/SpeedMenu.jsx",
+        "resources/js/utils/playerControls.js"
+      ]
+    },
+    {
+      "id": "video-layout",
+      "task": "video player layout component",
+      "correct": [
+        "resources/blocks/media/components/player/VideoLayout.jsx"
+      ]
+    },
+    {
+      "id": "audio-layout",
+      "task": "audio player layout component",
+      "correct": [
+        "resources/blocks/media/components/player/AudioLayout.jsx"
+      ]
+    },
+    {
+      "id": "playlist-manager",
+      "task": "learning playlist manager track progression",
+      "correct": [
+        "resources/js/managers/LearningPlaylistManager.js"
+      ]
+    },
+    {
+      "id": "play-button",
+      "task": "play button component for the player",
+      "correct": [
+        "resources/blocks/media/components/player/buttons/PlayButton.jsx"
+      ]
+    },
+    {
+      "id": "captions",
+      "task": "subtitle captions display",
+      "correct": [
+        "resources/blocks/media/components/player/Captions.jsx",
+        "resources/blocks/media/components/player/buttons/CaptionButton.jsx"
+      ]
+    },
+    {
+      "id": "video-source",
+      "task": "video source URL resolution",
+      "correct": [
+        "resources/js/utils/videoSrc.js"
+      ]
+    }
+  ]
+}

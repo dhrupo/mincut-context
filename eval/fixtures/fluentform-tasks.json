@@ -1,0 +1,77 @@
+{
+  "_comment": "Hand-labeled evaluation tasks against the FluentForm plugin (mixed PHP + Vue + JS). 'repo' is relative to this JSON file. Labels picked from files I've verified are the canonical implementation in earlier real-world test runs.",
+  "repo": "/Volumes/Projects/forms/wp-content/plugins/fluentform",
+  "tasks": [
+    {
+      "id": "stripe-processor",
+      "task": "stripe payment processor",
+      "correct": [
+        "app/Modules/Payments/PaymentMethods/Stripe/StripeProcessor.php",
+        "app/Modules/Payments/PaymentMethods/Stripe/StripeHandler.php"
+      ],
+      "nice_to_have": [
+        "app/Modules/Payments/PaymentMethods/Stripe/API/ApiRequest.php",
+        "app/Modules/Payments/PaymentMethods/Stripe/API/RequestProcessor.php"
+      ]
+    },
+    {
+      "id": "submission-handler",
+      "task": "form submission handler controller",
+      "correct": [
+        "app/Http/Controllers/SubmissionHandlerController.php",
+        "app/Modules/SubmissionHandler/SubmissionHandler.php"
+      ],
+      "nice_to_have": [
+        "app/Services/Form/SubmissionHandlerService.php"
+      ]
+    },
+    {
+      "id": "form-builder",
+      "task": "form builder construct form HTML",
+      "correct": [
+        "app/Services/FormBuilder/FormBuilder.php"
+      ],
+      "nice_to_have": [
+        "app/Services/FormBuilder/EditorShortCode.php"
+      ]
+    },
+    {
+      "id": "ai-form-builder",
+      "task": "AI form generation from prompt",
+      "correct": [
+        "app/Modules/Ai/AiFormBuilder.php"
+      ]
+    },
+    {
+      "id": "shortcode-parser",
+      "task": "shortcode parser replace form data tokens",
+      "correct": [
+        "app/Services/FormBuilder/ShortCodeParser.php"
+      ]
+    },
+    {
+      "id": "entries-list-vue",
+      "task": "admin entries list table component",
+      "correct": [
+        "resources/assets/admin/AllEntries/Components/AllEntries.vue"
+      ]
+    },
+    {
+      "id": "ajax-endpoints-payments",
+      "task": "payment ajax endpoints",
+      "correct": [
+        "app/Modules/Payments/AjaxEndpoints.php"
+      ]
+    },
+    {
+      "id": "form-fields-parser",
+      "task": "form fields parser extract field definitions",
+      "correct": [
+        "app/Modules/Form/FormFieldsParser.php"
+      ],
+      "nice_to_have": [
+        "app/Services/Parser/Form.php"
+      ]
+    }
+  ]
+}

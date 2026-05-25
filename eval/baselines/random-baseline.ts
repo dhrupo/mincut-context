@@ -9,11 +9,13 @@ const SKIP_DIR = new Set(['node_modules', 'dist', '.git', '.mincut-cache', 'cove
  * Random files until budget fills.  Lower bound on what "no signal" looks
  * like.  Deterministic via mulberry32 so the comparison report is stable.
  */
-export function randomBaseline(_task: string, repo: string, budget = 4000, seed = 1): Retrieval {
+export function randomBaseline(_task: string, repo: string, budget = 4000, seed = 1, exclude: string[] = []): Retrieval {
+  const excludeRes = exclude.map(globToRegex);
   const all: Array<{ rel: string; tokens: number }> = [];
   walk(repo, '', (rel, abs) => {
     const ext = path.extname(rel);
     if (!SUPPORTED.has(ext)) return;
+    if (excludeRes.some((re) => re.test(rel))) return;
     try {
       const stat = statSync(abs);
       all.push({ rel, tokens: Math.ceil(stat.size / 4) });
@@ -54,6 +56,15 @@ function walk(repo: string, sub: string, fn: (rel: string, abs: string) => void)
       /* skip */
     }
   }
+}
+
+function globToRegex(glob: string): RegExp {
+  const re = glob
+    .replace(/[.+?^$()|[\]{}]/g, '\\$&')
+    .replace(/\*\*/g, '___DOUBLESTAR___')
+    .replace(/\*/g, '[^/]*')
+    .replace(/___DOUBLESTAR___/g, '.*');
+  return new RegExp(`^${re}$`);
 }
 
 function mulberry32(seed: number): () => number {

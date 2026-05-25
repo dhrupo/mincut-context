@@ -31,7 +31,11 @@ interface Task {
 interface Fixtures {
   repo: string;
   tasks: Task[];
+  /** Optional repo-wide excludes applied to ALL strategies for fair comparison. */
+  exclude?: string[];
 }
+
+const DEFAULT_EXCLUDES = ['vendor/**', 'node_modules/**', 'dist/**', 'build/**', '.git/**'];
 
 interface Run {
   taskId: string;
@@ -61,6 +65,7 @@ async function main(): Promise<void> {
 
   const fx = JSON.parse(readFileSync(fixturesPath, 'utf8')) as Fixtures;
   const repo = path.resolve(path.dirname(fixturesPath), fx.repo);
+  const exclude = [...DEFAULT_EXCLUDES, ...(fx.exclude ?? [])];
 
   const report: RunnerReport = { perStrategy: {} };
   for (const s of STRATEGIES) report.perStrategy[s] = { perTask: [], aggregate: {} as Metrics };
@@ -68,7 +73,7 @@ async function main(): Promise<void> {
   for (const t of fx.tasks) {
     const ground = { correct: t.correct, niceToHave: t.nice_to_have };
 
-    const mincut = toRetrieval(await pack({ task: t.task, repo, budget, cache: true }));
+    const mincut = toRetrieval(await pack({ task: t.task, repo, budget, cache: true, exclude }));
     pushRun(report, 'mincut', t.id, mincut, ground);
 
     let embedRet: Retrieval = mincut;
@@ -76,15 +81,15 @@ async function main(): Promise<void> {
       try {
         const { createTransformersEmbedder } = await import('../src/seeds/transformers-embedder.js');
         const embedder = createTransformersEmbedder();
-        embedRet = toRetrieval(await pack({ task: t.task, repo, budget, cache: true, embedder, embedWeight: 0.5 }));
+        embedRet = toRetrieval(await pack({ task: t.task, repo, budget, cache: true, exclude, embedder, embedWeight: 0.5 }));
       } catch {
         embedRet = mincut;
       }
     }
     pushRun(report, 'mincut-embed', t.id, embedRet, ground);
 
-    pushRun(report, 'grep', t.id, grepBaseline(t.task, repo, budget), ground);
-    pushRun(report, 'random', t.id, randomBaseline(t.task, repo, budget, 1), ground);
+    pushRun(report, 'grep', t.id, grepBaseline(t.task, repo, budget, exclude), ground);
+    pushRun(report, 'random', t.id, randomBaseline(t.task, repo, budget, 1, exclude), ground);
   }
 
   for (const s of STRATEGIES) {

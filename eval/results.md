@@ -21,8 +21,8 @@ correct: `src/core/pagerank.ts`, `src/core/graph.ts`
 
 | strategy | P | R | F1 | tokens | retrieved |
 |---|---:|---:|---:|---:|---|
-| mincut | 0.33 | 1.00 | 0.50 | 1794 | src/core/pagerank.ts, src/index/cache.ts, src/index/worker-pool.ts, src/index/builder.ts, src/core/graph.ts +1 |
-| mincut-embed | 0.33 | 1.00 | 0.50 | 1794 | src/core/pagerank.ts, src/index/cache.ts, src/index/worker-pool.ts, src/index/builder.ts, src/core/graph.ts +1 |
+| mincut | 0.33 | 1.00 | 0.50 | 1716 | src/core/pagerank.ts, src/index/cache.ts, src/index/worker-pool.ts, src/index/builder.ts, src/core/graph.ts +1 |
+| mincut-embed | 0.33 | 1.00 | 0.50 | 1716 | src/core/pagerank.ts, src/index/cache.ts, src/index/worker-pool.ts, src/index/builder.ts, src/core/graph.ts +1 |
 | grep | 0.20 | 0.50 | 0.29 | 3905 | src/core/select.ts, src/core/pagerank.ts, tests/integration/core-pipeline.test.ts, src/adapters/lib/index.ts, src/core/index.ts |
 | random | 0.00 | 0.00 | 0.00 | 3997 | src/adapters/cli/watch.ts, tests/integration/cli.test.ts, src/core/index.ts, src/lsp/typescript.ts, src/parsers/parser.ts +3 |
 
@@ -32,8 +32,8 @@ correct: `src/core/select.ts`, `src/core/graph.ts`
 
 | strategy | P | R | F1 | tokens | retrieved |
 |---|---:|---:|---:|---:|---|
-| mincut | 0.40 | 1.00 | 0.57 | 2416 | src/core/select.ts, src/index/cache.ts, src/core/graph.ts, src/index/worker-pool.ts, src/index/builder.ts |
-| mincut-embed | 0.40 | 1.00 | 0.57 | 2416 | src/core/select.ts, src/index/cache.ts, src/core/graph.ts, src/index/worker-pool.ts, src/index/builder.ts |
+| mincut | 0.40 | 1.00 | 0.57 | 2444 | src/core/select.ts, src/index/cache.ts, src/core/graph.ts, src/index/worker-pool.ts, src/index/builder.ts |
+| mincut-embed | 0.40 | 1.00 | 0.57 | 2444 | src/core/select.ts, src/index/cache.ts, src/core/graph.ts, src/index/worker-pool.ts, src/index/builder.ts |
 | grep | 0.40 | 1.00 | 0.57 | 3924 | src/core/select.ts, src/core/graph.ts, tests/integration/core-pipeline.test.ts, src/core/index.ts, src/adapters/lib/index.ts |
 | random | 0.00 | 0.00 | 0.00 | 3997 | src/adapters/cli/watch.ts, tests/integration/cli.test.ts, src/core/index.ts, src/lsp/typescript.ts, src/parsers/parser.ts +3 |
 
@@ -100,7 +100,7 @@ correct: `src/index/cache.ts`
 |---|---:|---:|---:|---:|---|
 | mincut | 0.09 | 1.00 | 0.17 | 3923 | src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/adapters/cli/doctor.ts, src/index/parse-worker.ts +6 |
 | mincut-embed | 0.09 | 1.00 | 0.17 | 3923 | src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/adapters/cli/doctor.ts, src/index/parse-worker.ts +6 |
-| grep | 0.20 | 1.00 | 0.33 | 3784 | src/index/cache.ts, tests/integration/cache-gzip.test.ts, tests/integration/cache.test.ts, tests/integration/parallel.test.ts, eval/baselines/random-baseline.ts |
+| grep | 0.20 | 1.00 | 0.33 | 3811 | src/index/cache.ts, tests/integration/cache-gzip.test.ts, tests/integration/cache.test.ts, tests/integration/parallel.test.ts, tests/unit/doctor.test.ts |
 | random | 0.00 | 0.00 | 0.00 | 3997 | src/adapters/cli/watch.ts, tests/integration/cli.test.ts, src/core/index.ts, src/lsp/typescript.ts, src/parsers/parser.ts +3 |
 
 ### doctor — "environment self check command"
@@ -120,9 +120,9 @@ correct: `src/seeds/keyword.ts`
 
 | strategy | P | R | F1 | tokens | retrieved |
 |---|---:|---:|---:|---:|---|
-| mincut | 0.17 | 1.00 | 0.29 | 1461 | src/seeds/keyword.ts, src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/core/graph.ts +1 |
-| mincut-embed | 0.17 | 1.00 | 0.29 | 1461 | src/seeds/keyword.ts, src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/core/graph.ts +1 |
-| grep | 0.25 | 1.00 | 0.40 | 3960 | src/seeds/keyword.ts, src/seeds/embedding.ts, tests/unit/seeds/keyword.test.ts, eval/baselines/random-baseline.ts |
+| mincut | 0.17 | 1.00 | 0.29 | 1490 | src/seeds/keyword.ts, src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/core/graph.ts +1 |
+| mincut-embed | 0.17 | 1.00 | 0.29 | 1490 | src/seeds/keyword.ts, src/index/cache.ts, src/index/builder.ts, src/index/worker-pool.ts, src/core/graph.ts +1 |
+| grep | 0.20 | 1.00 | 0.33 | 3982 | src/seeds/keyword.ts, src/seeds/embedding.ts, tests/unit/seeds/keyword.test.ts, src/lsp/typescript.ts, src/lsp/types.ts |
 | random | 0.00 | 0.00 | 0.00 | 3997 | src/adapters/cli/watch.ts, tests/integration/cli.test.ts, src/core/index.ts, src/lsp/typescript.ts, src/parsers/parser.ts +3 |
 
 ### lsp-resolver — "LSP backed call edge resolver via textDocument definition"
