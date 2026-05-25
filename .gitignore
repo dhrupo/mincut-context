@@ -10,3 +10,6 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# personal / launch materials — stay local
+marketing/
