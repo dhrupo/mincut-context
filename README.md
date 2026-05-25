@@ -12,6 +12,7 @@ A symbol graph of your repo + personalized PageRank + budget-constrained min-cut
 [![bundle size](https://img.shields.io/bundlephobia/minzip/mincut-context?label=size)](https://bundlephobia.com/package/mincut-context)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6?logo=typescript&logoColor=white)](./src)
 [![node](https://img.shields.io/badge/node-%E2%89%A518.17-43853d?logo=nodedotjs&logoColor=white)](./package.json)
+[![ci](https://github.com/dhrupo/mincut-context/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dhrupo/mincut-context/actions/workflows/ci.yml)
 [![tests](https://img.shields.io/badge/tests-256%20passing-brightgreen)](./tests)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
