@@ -1,0 +1,137 @@
+{
+  "_comment": "Hand-labeled evaluation tasks against the mincut-context repo itself. 'repo' is relative to THIS JSON file — '../..' resolves to the project root.",
+  "repo": "../..",
+  "tasks": [
+    {
+      "id": "pagerank",
+      "task": "implement personalized PageRank algorithm",
+      "correct": [
+        "src/core/pagerank.ts",
+        "src/core/graph.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/core/pagerank.test.ts"
+      ]
+    },
+    {
+      "id": "min-cut-selection",
+      "task": "greedy budget-constrained min-cut selection",
+      "correct": [
+        "src/core/select.ts",
+        "src/core/graph.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/core/select.test.ts",
+        "tests/unit/core/select-community.test.ts"
+      ]
+    },
+    {
+      "id": "vue-script-block",
+      "task": "vue single file component script block parsing",
+      "correct": [
+        "src/parsers/vue.ts",
+        "src/parsers/ts.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/parsers/vue.test.ts"
+      ]
+    },
+    {
+      "id": "python-chunking",
+      "task": "split large python functions into chunks at statement boundaries",
+      "correct": [
+        "src/parsers/py.ts",
+        "src/parsers/chunking.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/parsers/py-chunking.test.ts"
+      ]
+    },
+    {
+      "id": "mcp-server",
+      "task": "MCP server tools find_callers find_callees search_symbols",
+      "correct": [
+        "src/adapters/mcp/handler.ts"
+      ],
+      "nice_to_have": [
+        "src/adapters/mcp/index.ts",
+        "tests/integration/mcp-graph-tools.test.ts"
+      ]
+    },
+    {
+      "id": "tui-vim-keys",
+      "task": "interactive TUI with vim navigation and preview pane",
+      "correct": [
+        "src/adapters/cli/tui.tsx"
+      ],
+      "nice_to_have": [
+        "tests/integration/tui.test.tsx"
+      ]
+    },
+    {
+      "id": "watch-mode",
+      "task": "long running watch mode that re-packs on file change",
+      "correct": [
+        "src/adapters/cli/watch.ts"
+      ],
+      "nice_to_have": [
+        "tests/integration/watch.test.ts"
+      ]
+    },
+    {
+      "id": "compressed-cache",
+      "task": "gzip compress persistent parse cache entries",
+      "correct": [
+        "src/index/cache.ts"
+      ],
+      "nice_to_have": [
+        "tests/integration/cache-gzip.test.ts"
+      ]
+    },
+    {
+      "id": "doctor",
+      "task": "environment self check command",
+      "correct": [
+        "src/adapters/cli/doctor.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/doctor.test.ts"
+      ]
+    },
+    {
+      "id": "seed-scoring",
+      "task": "keyword IDF seed scoring with file path tokens and kind weights",
+      "correct": [
+        "src/seeds/keyword.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/seeds/keyword-improved.test.ts",
+        "tests/unit/seeds/keyword.test.ts"
+      ]
+    },
+    {
+      "id": "lsp-resolver",
+      "task": "LSP backed call edge resolver via textDocument definition",
+      "correct": [
+        "src/lsp/resolver.ts",
+        "src/lsp/stdio-client.ts",
+        "src/lsp/typescript.ts"
+      ],
+      "nice_to_have": [
+        "tests/unit/lsp/resolver.test.ts"
+      ]
+    },
+    {
+      "id": "parallel-parsing",
+      "task": "parallel parsing via worker threads pool",
+      "correct": [
+        "src/index/worker-pool.ts",
+        "src/index/parse-worker.ts",
+        "src/index/builder.ts"
+      ],
+      "nice_to_have": [
+        "tests/integration/parallel.test.ts"
+      ]
+    }
+  ]
+}
