@@ -171,14 +171,22 @@ export async function pack(options: PackOptions): Promise<PackResult> {
   }
 
   if (graph.order() === 0) {
-    return emptyResult('No supported source files found.', stats.symbols);
+    return emptyResult(
+      'No supported source files found.\n' +
+        'Hint: mincut-context indexes .ts .tsx .js .jsx .mjs .cjs .py .pyi .php .vue files. ' +
+        'Check --repo points at a real source repo and your --include/--exclude patterns are correct.',
+      stats.symbols,
+    );
   }
 
   const seedMap = embedder
     ? await scoreSeedsHybrid(graph, task, { k: seeds, embedder, embedWeight })
     : scoreSeeds(graph, task, { k: seeds });
   if (seedMap.size === 0) {
-    return emptyResult(`No symbols matched the task “${task}”.`, stats.symbols);
+    const hint = embedder
+      ? 'Even with --embed no symbols seemed semantically close. Try widening the task with related terms.'
+      : 'Hint: try --embed for semantic matching when your task vocabulary differs from the code\'s.';
+    return emptyResult(`No symbols matched the task “${task}”.\n${hint}`, stats.symbols);
   }
 
   // Drop seeds (lowest-scored first) until the cumulative token cost fits the

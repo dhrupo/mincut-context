@@ -213,7 +213,7 @@ program
 
 program
   .command('mcp')
-  .description('Run as an MCP server over stdio (slice 8 — placeholder)')
+  .description('Run as a Model Context Protocol server over stdio')
   .action(async () => {
     const { runMcpServer } = await import('../mcp/index.js');
     await runMcpServer();
