@@ -3,6 +3,7 @@ tests/
 docs/
 eval/
 examples/
+marketing/
 coverage/
 .mincut-cache/
 .git/
