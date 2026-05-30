@@ -72,9 +72,9 @@ function parseWithSignatures(file: string, source: string): ParsedSymbol[] {
   const ext = file.slice(file.lastIndexOf('.'));
   const opts = { signatures: true } as const;
   if (TS_EXT.has(ext)) return parseTypeScript(file, source, undefined, opts).symbols;
-  // php/vue do not accept ParseOptions yet — Tasks 9-10 will forward `opts` here.
   if (ext === '.py' || ext === '.pyi') return parsePython(file, source, undefined, opts).symbols;
-  if (ext === '.php') return parsePhp(file, source).symbols;
+  if (ext === '.php') return parsePhp(file, source, undefined, opts).symbols;
+  // vue does not accept ParseOptions yet — Task 10 will forward `opts` here.
   if (ext === '.vue') return parseVueSfc(file, source).symbols;
   return [];
 }
