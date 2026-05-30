@@ -1,5 +1,5 @@
 import { parseTypeScript } from './ts.js';
-import type { ChunkOptions, ParseResult } from './parser.js';
+import type { ChunkOptions, ParseOptions, ParseResult } from './parser.js';
 
 /**
  * Vue Single-File Component parser.
@@ -19,6 +19,7 @@ export function parseVueSfc(
   file: string,
   source: string,
   chunkOptions?: ChunkOptions,
+  parseOptions?: ParseOptions,
 ): ParseResult {
   const blocks = extractScriptBlocks(source);
   if (blocks.length === 0) {
@@ -30,7 +31,7 @@ export function parseVueSfc(
   for (const block of blocks) {
     // Parse each block as TS regardless of lang.  tree-sitter-typescript handles
     // plain JS just fine, so we don't bother dispatching here.
-    const inner = parseTypeScript(file, block.content, chunkOptions);
+    const inner = parseTypeScript(file, block.content, chunkOptions, parseOptions);
 
     // Shift line numbers from script-local back to SFC-global.
     const offset = block.startLine - 1;
@@ -53,9 +54,8 @@ interface ScriptBlock {
   startLine: number;
 }
 
-const SCRIPT_REGEX = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
-
 function extractScriptBlocks(source: string): ScriptBlock[] {
+  const SCRIPT_REGEX = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
   const blocks: ScriptBlock[] = [];
   let m: RegExpExecArray | null;
   while ((m = SCRIPT_REGEX.exec(source)) !== null) {
