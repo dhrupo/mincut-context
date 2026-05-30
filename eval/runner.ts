@@ -8,6 +8,7 @@
  * For each labeled task, runs:
  *   - mincut (default)
  *   - mincut + --embed weight=0.5
+ *   - mincut-contract (mincut + frontier-contract A/B)
  *   - grep baseline
  *   - random baseline (seed=1)
  *
@@ -20,6 +21,7 @@ import { pack } from '../src/select/pack.js';
 import { aggregate, computeMetrics, type Metrics, type Retrieval } from './metrics.js';
 import { grepBaseline } from './baselines/grep-baseline.js';
 import { randomBaseline } from './baselines/random-baseline.js';
+import { computeBoundary } from './boundary.js';
 
 interface Task {
   id: string;
@@ -47,7 +49,7 @@ interface RunnerReport {
   perStrategy: Record<string, { perTask: Run[]; aggregate: Metrics }>;
 }
 
-const STRATEGIES = ['mincut', 'mincut-embed', 'grep', 'random'] as const;
+const STRATEGIES = ['mincut', 'mincut-embed', 'mincut-contract', 'grep', 'random'] as const;
 type Strategy = (typeof STRATEGIES)[number];
 
 function getArg(args: string[], flag: string): string | undefined {
@@ -70,6 +72,8 @@ async function main(): Promise<void> {
   const report: RunnerReport = { perStrategy: {} };
   for (const s of STRATEGIES) report.perStrategy[s] = { perTask: [], aggregate: {} as Metrics };
 
+  const boundaryByTask: Array<{ taskId: string } & ReturnType<typeof computeBoundary>> = [];
+
   for (const t of fx.tasks) {
     const ground = { correct: t.correct, niceToHave: t.nice_to_have };
 
@@ -88,6 +92,23 @@ async function main(): Promise<void> {
     }
     pushRun(report, 'mincut-embed', t.id, embedRet, ground);
 
+    const contractPackResult = await pack({ task: t.task, repo, budget, cache: true, exclude, contract: true });
+    const selectedFiles = contractPackResult.files.map((f) => f.path);
+    const contractFiles = contractPackResult.contract?.files ?? [];
+    const boundary = computeBoundary({
+      selectedFiles,
+      contractFiles,
+      selectedTokens: contractPackResult.tokens,
+      contractTokens: contractPackResult.contract?.tokens ?? 0,
+      correct: t.correct,
+    });
+    const contractRet: Retrieval = {
+      files: [...selectedFiles, ...contractFiles],
+      tokens: contractPackResult.tokens + (contractPackResult.contract?.tokens ?? 0),
+    };
+    pushRun(report, 'mincut-contract', t.id, contractRet, ground);
+    boundaryByTask.push({ taskId: t.id, ...boundary });
+
     pushRun(report, 'grep', t.id, grepBaseline(t.task, repo, budget, exclude), ground);
     pushRun(report, 'random', t.id, randomBaseline(t.task, repo, budget, 1, exclude), ground);
   }
@@ -96,7 +117,7 @@ async function main(): Promise<void> {
     report.perStrategy[s].aggregate = aggregate(report.perStrategy[s].perTask.map((r) => r.metrics));
   }
 
-  const md = renderMarkdown(report, fx.tasks, budget);
+  const md = renderMarkdown(report, fx.tasks, budget, boundaryByTask);
   writeFileSync(path.resolve('eval/results.md'), md);
   console.log(md);
 }
@@ -116,11 +137,18 @@ function pushRun(
   report.perStrategy[strategy].perTask.push({ taskId, retrieval, metrics });
 }
 
-function renderMarkdown(report: RunnerReport, tasks: Task[], budget: number): string {
+function avg(ns: number[]): number { return ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : 0; }
+
+function renderMarkdown(
+  report: RunnerReport,
+  tasks: Task[],
+  budget: number,
+  boundaryByTask: Array<{ taskId: string } & ReturnType<typeof computeBoundary>>,
+): string {
   const out: string[] = [];
   out.push(`# mincut-context — evaluation report`);
   out.push('');
-  out.push(`Budget: **${budget} tokens** per pack · ${tasks.length} labeled tasks · 4 strategies`);
+  out.push(`Budget: **${budget} tokens** per pack · ${tasks.length} labeled tasks · ${STRATEGIES.length} strategies`);
   out.push('');
   out.push(`## Aggregate (averaged across all tasks)`);
   out.push('');
@@ -132,6 +160,12 @@ function renderMarkdown(report: RunnerReport, tasks: Task[], budget: number): st
   }
   out.push('');
   out.push('> token-efficiency = (recall × 1000) / tokens — higher means more signal per token spent.');
+  out.push('');
+  out.push(
+    '> `mincut-contract` retrieval counts selected files **and** signature-stub files, ' +
+    'so its precision/F1 in the table above are diluted by stubs and are NOT a quality regression. ' +
+    'The Frontier-contract A/B section below is the meaningful metric.',
+  );
   out.push('');
   out.push(`## Per-task breakdown`);
   for (const t of tasks) {
@@ -148,6 +182,26 @@ function renderMarkdown(report: RunnerReport, tasks: Task[], budget: number): st
       out.push(`| ${s} | ${run.metrics.precision.toFixed(2)} | ${run.metrics.recall.toFixed(2)} | ${run.metrics.f1.toFixed(2)} | ${run.retrieval.tokens} | ${ret || '_(empty)_'} |`);
     }
   }
+  if (boundaryByTask.length > 0) {
+    const aggRecall = avg(boundaryByTask.map((b) => b.recall));
+    const aggCoverage = avg(boundaryByTask.map((b) => b.boundaryCoverage));
+    const aggContractTokens = avg(boundaryByTask.map((b) => b.contractTokens));
+    const aggRecovered = avg(boundaryByTask.map((b) => b.recoveredPerKToken));
+
+    out.push('');
+    out.push('## Frontier-contract A/B (signature-level coverage)');
+    out.push('');
+    out.push('| metric | value |');
+    out.push('|---|---|');
+    out.push(`| cut-only file recall | ${(aggRecall * 100).toFixed(1)}% |`);
+    out.push(`| cut+contract boundary coverage | ${(aggCoverage * 100).toFixed(1)}% |`);
+    out.push(`| avg contract tokens / task | ${aggContractTokens.toFixed(0)} |`);
+    out.push(`| correct files recovered per 1k contract tokens | ${aggRecovered.toFixed(3)} |`);
+    out.push('');
+    out.push('> Boundary coverage is signature-level: a file recovered via a stub is reachable, not fully present.');
+    out.push('');
+  }
+
   return out.join('\n') + '\n';
 }
 
