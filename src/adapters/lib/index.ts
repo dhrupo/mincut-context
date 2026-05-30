@@ -4,6 +4,9 @@ export type {
   PackResult,
   PackedFile,
   FileRange,
+  Contract,
+  ContractStub,
+  ContractOptions,
 } from '../../select/pack.js';
 export { indexRepo } from '../../index/builder.js';
 export type { IndexResult } from '../../index/builder.js';

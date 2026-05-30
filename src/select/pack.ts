@@ -6,6 +6,8 @@ import { resolveCallsWithLsp, type CallSite } from '../lsp/resolver.js';
 import type { WalkOptions } from '../index/walker.js';
 import { scoreSeeds } from '../seeds/keyword.js';
 import { scoreSeedsHybrid, type Embedder } from '../seeds/embedding.js';
+import { buildContract, type Contract, type ContractOptions } from './contract.js';
+export type { Contract, ContractStub, ContractOptions } from './contract.js';
 
 export interface PackOptions {
   task: string;
@@ -60,6 +62,12 @@ export interface PackOptions {
    * If the LSP errors out, the pack silently falls back to syntactic-only.
    */
   lspClient?: LspClient;
+  /**
+   * Emit a typed-handoff contract: body-free signature stubs for the selected
+   * region's outbound dependency frontier. `true` = uncapped; pass
+   * `{ maxTokens }` to bound it. Default off.
+   */
+  contract?: boolean | ContractOptions;
 }
 
 export interface FileRange {
@@ -98,6 +106,14 @@ export interface PackResult {
   explain: string;
   /** Present only when options.verbose was true. */
   trace?: PackTrace;
+  /**
+   * Present only when options.contract was set. Note: `graph.frontier` counts
+   * ALL cut-boundary symbols (inbound + outbound, every edge kind), whereas the
+   * contract covers only the region's OUTBOUND type-dependency frontier
+   * (`contract.stubs.length + contract.skipped`). The two numbers are not
+   * expected to match.
+   */
+  contract?: Contract;
 }
 
 export async function pack(options: PackOptions): Promise<PackResult> {
@@ -119,6 +135,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     chunk,
     lspClient,
     trimScoreRatio = 0.02,
+    contract,
   } = options;
   if (budget <= 0) throw new Error('budget must be positive');
 
@@ -311,6 +328,12 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     };
   }
 
+  let contractResult: Contract | undefined;
+  if (contract) {
+    const contractOpts: ContractOptions = contract === true ? {} : contract;
+    contractResult = buildContract(graph, selection.selected, repo, contractOpts);
+  }
+
   return {
     files,
     tokens: trimmedTokens,
@@ -322,6 +345,7 @@ export async function pack(options: PackOptions): Promise<PackResult> {
     },
     explain: buildExplain(task, fittedSeeds, selection, files, budget, stats.files),
     trace,
+    contract: contractResult,
   };
 }
 
