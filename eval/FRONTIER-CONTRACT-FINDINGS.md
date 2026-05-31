@@ -31,8 +31,13 @@ budgeted cut *misses 37.5 % of correct files*, the outbound type-frontier
 recovers **none** of them.
 
 (Budget 4 000 tokens. FluentForm/Player fixtures index the live sibling repos at
-`/Volumes/Projects/forms/wp-content/plugins/`; numbers are reproducible via
-`npx tsx eval/runner.ts --fixtures eval/fixtures/<repo>-tasks.json`.)
+`/Volumes/Projects/forms/wp-content/plugins/`.)
+
+> **Note:** the implementation was reverted after this experiment (see Status
+> below). To reproduce the numbers, check out the commit where the code lived —
+> `git checkout 5ca0749` — then run
+> `npx tsx eval/runner.ts --fixtures eval/fixtures/<repo>-tasks.json`. The
+> `mincut-contract` strategy and `eval/boundary.ts` exist only on that history.
 
 ## Why it fails (mechanistic reading)
 
@@ -78,8 +83,13 @@ Each is a separate hypothesis with its own eval; none is implemented here.
 
 ## Status
 
-The feature is complete, tested (301 tests green), and merge-ready as an
-opt-in capability. Its headline hypothesis returns a clean **null result** — which
-is the honest outcome the spec explicitly anticipated ("the hypothesis may not
-hold… that is itself a valid, honest result and the eval should report it
-plainly").
+The capability was built end-to-end (opt-in `pack({ contract })`, signature
+extraction across TS/Py/PHP/Vue, the `boundaryCoverage` metric, 301 tests green)
+on branch `feat/frontier-contract` and lived briefly on `main` at commit
+`5ca0749`. Because the headline hypothesis returned a clean **null result**, the
+**implementation was reverted** and only this research record — plus the spec and
+plan — was kept. That is the honest outcome the spec explicitly anticipated ("the
+hypothesis may not hold… that is itself a valid, honest result and the eval
+should report it plainly"). The machinery is recoverable from history (`5ca0749`)
+if a future hypothesis (inbound callers, semantic neighbors, co-change) wants to
+reuse it.

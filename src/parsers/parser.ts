@@ -11,8 +11,6 @@ export interface ParsedSymbol {
   tokens: number;         // approximate token count for the symbol body
   /** Present on sub-symbol chunks emitted from a large parent function. */
   chunk?: { parent: string; index: number };
-  /** Body-free signature stub. Populated only when parsed with { signatures: true }. */
-  signature?: string;
 }
 
 export interface ChunkOptions {
@@ -53,36 +51,4 @@ export interface LanguageParser {
  */
 export function approxTokens(text: string): number {
   return Math.ceil(text.length / 4);
-}
-
-export interface ParseOptions {
-  /** When true, parsers populate ParsedSymbol.signature (used by the contract path). */
-  signatures?: boolean;
-}
-
-/** A minimal node span — matches tree-sitter SyntaxNode without importing it. */
-interface SpanLike { startIndex: number; endIndex: number }
-
-/**
- * Produce a body-free signature stub for a symbol.
- *   - interface/type : full text (it IS the contract)
- *   - has a body node : text from node start up to body start, body elided
- *   - otherwise       : first source line only (variable / export / no-body fallback)
- */
-export function sliceSignature(
-  source: string,
-  node: SpanLike,
-  body: { startIndex: number } | null,
-  kind: NodeKind,
-): string {
-  if (kind === 'interface' || kind === 'type') {
-    return source.slice(node.startIndex, node.endIndex).trim();
-  }
-  if (body) {
-    const head = source.slice(node.startIndex, body.startIndex).trimEnd();
-    return `${head} { /* … */ }`;
-  }
-  const text = source.slice(node.startIndex, node.endIndex);
-  const nl = text.indexOf('\n');
-  return (nl === -1 ? text : text.slice(0, nl)).trim();
 }

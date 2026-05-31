@@ -2,9 +2,7 @@ import Parser from 'tree-sitter';
 import { createRequire } from 'node:module';
 import {
   approxTokens,
-  sliceSignature,
   type ChunkOptions,
-  type ParseOptions,
   type ParsedImport,
   type ParsedSymbol,
   type ParseResult,
@@ -21,7 +19,6 @@ export function parsePython(
   file: string,
   source: string,
   chunkOptions?: ChunkOptions,
-  parseOptions?: ParseOptions,
 ): ParseResult {
   let tree: Parser.Tree;
   try {
@@ -39,7 +36,6 @@ export function parsePython(
     classStack: [],
     callerStack: [],
     chunkOptions,
-    signatures: parseOptions?.signatures ?? false,
   };
   visit(tree.rootNode, ctx);
   return { symbols: ctx.symbols, imports: ctx.imports, calls: ctx.calls };
@@ -54,7 +50,6 @@ interface PyContext {
   classStack: string[];
   callerStack: string[];
   chunkOptions?: ChunkOptions;
-  signatures: boolean;
 }
 
 function visit(node: Parser.SyntaxNode, ctx: PyContext): void {
@@ -189,7 +184,7 @@ function makeSym(
   kind: ParsedSymbol['kind'],
 ): ParsedSymbol {
   const text = ctx.source.slice(node.startIndex, node.endIndex);
-  const sym: ParsedSymbol = {
+  return {
     id: `${ctx.file}:${qualifiedName}`,
     name: bareName,
     file: ctx.file,
@@ -198,11 +193,6 @@ function makeSym(
     endLine: node.endPosition.row + 1,
     tokens: approxTokens(text),
   };
-  if (ctx.signatures) {
-    const body = node.childForFieldName('body');
-    sym.signature = sliceSignature(ctx.source, node, body, kind);
-  }
-  return sym;
 }
 
 function simpleCallee(fn: Parser.SyntaxNode): string | null {

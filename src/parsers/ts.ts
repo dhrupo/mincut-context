@@ -9,11 +9,9 @@ const TypeScript = require_('tree-sitter-typescript') as {
 };
 import {
   approxTokens,
-  sliceSignature,
   type ChunkOptions,
   type ParsedCall,
   type ParsedImport,
-  type ParseOptions,
   type ParsedSymbol,
   type ParseResult,
 } from './parser.js';
@@ -28,7 +26,6 @@ export function parseTypeScript(
   file: string,
   source: string,
   chunkOptions?: ChunkOptions,
-  parseOptions?: ParseOptions,
 ): ParseResult {
   const parser = file.endsWith('.tsx') || file.endsWith('.jsx') ? tsxParser : tsParser;
 
@@ -53,7 +50,6 @@ export function parseTypeScript(
     callerStack: [],
     inTypeContext: false,
     chunkOptions,
-    signatures: parseOptions?.signatures ?? false,
   });
 
   return { symbols, imports, calls };
@@ -69,7 +65,6 @@ interface VisitorContext {
   callerStack: string[];
   inTypeContext: boolean;
   chunkOptions?: ChunkOptions;
-  signatures: boolean;
 }
 
 /**
@@ -262,7 +257,7 @@ function makeSymbol(
   kind: ParsedSymbol['kind'],
 ): ParsedSymbol {
   const text = ctx.source.slice(node.startIndex, node.endIndex);
-  const sym: ParsedSymbol = {
+  return {
     id: `${ctx.file}:${qualifiedName}`,
     name: bareName,
     file: ctx.file,
@@ -271,11 +266,6 @@ function makeSymbol(
     endLine: node.endPosition.row + 1,
     tokens: approxTokens(text),
   };
-  if (ctx.signatures) {
-    const body = node.childForFieldName('body');
-    sym.signature = sliceSignature(ctx.source, node, body, kind);
-  }
-  return sym;
 }
 
 function extractImport(node: Parser.SyntaxNode): ParsedImport | null {

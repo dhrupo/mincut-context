@@ -434,7 +434,7 @@ Add your own labeled tasks under `eval/fixtures/` to score against your codebase
 - [x] Cross-repo eval — FluentForm + Fluent Player (28 tasks total, 3 codebases) **(v1.7)**
 - [x] CI coverage gate (>=85%) **(v1.7)**
 - [x] CELF lazy-greedy algorithm research (greedy stays — CELF diverges on our objective) **(v1.7)**
-- [x] Frontier-as-contract research — opt-in `pack({ contract })` emits body-free signature stubs for the cut's outbound dependency frontier. Hypothesis (cheap recall recovery) **falsified**: the outbound frontier is redundant with the min-cut, recovering 0.000 dropped files across 3 repos. Full writeup in [`eval/FRONTIER-CONTRACT-FINDINGS.md`](./eval/FRONTIER-CONTRACT-FINDINGS.md)
+- [x] Frontier-as-contract research — prototyped body-free signature stubs of the cut's outbound dependency frontier as a typed handoff. Hypothesis (cheap recall recovery) **falsified**: the outbound frontier is redundant with the min-cut, recovering 0.000 dropped files across 3 repos. **Implementation reverted, research kept** — spec, plan, and full writeup in [`eval/FRONTIER-CONTRACT-FINDINGS.md`](./eval/FRONTIER-CONTRACT-FINDINGS.md)
 - [ ] Pyright / Intelephense LSP adapters
 - [ ] Svelte / Rust / Go parsers
 
